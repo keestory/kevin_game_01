@@ -1,6 +1,8 @@
-# Evidence Register — 한국 iPhone 무료 Games, 2026-08-09
+# Evidence Register — 한국 iPhone 무료 Games, 2026-08-10
 
 > 20:52 KST 실제 열차 콘셉트 재조사 RT01~RT10은 [real-train-refresh-2026-08-09.md](real-train-refresh-2026-08-09.md)에 추가했다. 동적 차트 웹·RSS의 갱신 시각 차이를 분리 기록한다.
+>
+> 2026-08-10 endless 기록형 피벗의 최신 Apple 무료·매출 관측, 물리 파괴 경쟁작, 대안 폐기 근거는 [endless-score-pivot-2026-08-10.md](endless-score-pivot-2026-08-10.md)에 분리했다. 기존 E01~E27은 2026-08-09 스냅샷으로 유지한다.
 
 ## 등급과 사용 규칙
 

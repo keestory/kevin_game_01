@@ -1,6 +1,6 @@
 # Decision Log
 
-확인일: 2026-08-09
+확인일: 2026-08-10
 책임: Product Orchestrator
 
 ## D-001 — 기존 앱의 지위
@@ -55,3 +55,15 @@
 - 근거: Bus Jam/Bus Out 한국 리뷰에는 초반 광고·난도 절벽 불만이 반복되고, 2026-08-09 한국 최고매출 #6 Royal Match는 광고 없이 IAP로 운영된다.
 - 친구 기능: 설치·가입 현상금은 어뷰징·스팸·신뢰 비용 때문에 제외하고 결과 공유부터 검증한다.
 - 미확인: 광고 유무가 유지·LTV에 미치는 영향, 한국 CPI/eCPM/LTV.
+
+## D-009 — 열차 타이밍 게임 중단과 endless 기록형 재탐색
+
+- 결정: 정차선 제동, 목적지 문 선택, 목표 인원 문닫기를 포함한 열차 게임 방향을 중단한다. 현재 앱과 `rev4` 명세는 학습 증거로 보존하지만 새 제품 승인 근거로 사용하지 않는다.
+- 직접 근거: 오너의 반복 플레이에서 입력 빈도, 상호작용, 조작 숙련, 개인 기록 추격이 부족해 재미가 없다는 피드백이 계속됐다. 열차 그래픽을 강화해도 코어 문제가 해소되지 않았다.
+- 새 단일 후보: `연쇄파괴: 리턴 샷`. continuous paddle로 반사각을 만들고 약점 연쇄붕괴·endless 높이·점수·콤보·PB ghost를 추격한다.
+- 시장 근거: 2026-08-10 한국 무료 Games의 Smash Fest·Block Blast와 글로벌 물리 파괴 게임은 acquisition 가설만 지지한다. 한국 iOS 유지·매출·무료 1위 가능성은 미확인이다.
+- 폐기한 대안: Encircle과 핵심 규칙이 겹치는 Looplight, incumbent와 콘텐츠 비용이 큰 endless runner, 음악 권리·저지연 QA 비용이 큰 rhythm.
+- 에이전트 충돌: Market은 현재 매출 근거 부재를 경고했고 UX는 active-paddle를 추천했으며 Engineering은 deterministic collision 없이는 공정성을 보장할 수 없다고 판정했다. Product Orchestrator는 2일 collision spike와 5일 no-ad graybox만 승인한다.
+- Gate: 사용자 5명 중 4명의 5초 이해, active-touch 중앙값 60% 이상, Run 3 기록 중앙값이 Run 1보다 20% 이상 상승, 3/5 자발적 재시도, deterministic replay와 공 관통 0건을 모두 요구한다.
+- Stop: 위 Gate 실패, 3/5 이상이 `그냥 벽돌깨기`로만 인지, 불공정 물리 1건, 지원 하한 기기 성능 실패 시 그래픽·수익화·출시 투자를 중단한다.
+- 상세 근거: [Endless Score Pivot — 2026-08-10](../01-research/endless-score-pivot-2026-08-10.md).
