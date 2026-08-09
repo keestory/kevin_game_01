@@ -19,7 +19,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 22) {
                     HStack {
-                        Label("오늘의 막차", systemImage: "tram.fill")
+                        Label("오늘의 정위치 운행", systemImage: "tram.fill")
                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                             .foregroundStyle(Color.exitMint)
                         Spacer()
@@ -37,33 +37,33 @@ struct HomeView: View {
                     }
 
                     VStack(spacing: 2) {
-                        Text("한 칸만!")
+                        Text("정위치!")
                             .font(.system(size: 52, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
                         Text("만원열차")
                             .font(.system(size: 31, weight: .black, design: .rounded))
                             .foregroundStyle(Color.safetyYellow)
-                        Text("퇴근길 60초 원터치 퍼즐")
+                        Text("정차선에 맞춰 승객을 내려요")
                             .font(.system(.subheadline, design: .rounded, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.62))
                             .padding(.top, 7)
                     }
                     .padding(.top, 10)
 
-                    PassengerPreview()
+                    TrainPreview()
                         .padding(.vertical, 5)
 
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("\(model.profile.highestStage)역 운행")
+                                Text("\(model.profile.highestStage)단계 운행")
                                     .font(.system(.title3, design: .rounded, weight: .heavy))
-                                Text(model.currentDifficulty.assisted ? "혼잡 완화 운행이 적용됐어요" : "목표 점수를 채우면 다음 역으로")
+                                Text(model.currentDifficulty.assisted ? "편안한 제동 구간이 적용됐어요" : "5개 역에서 목표 인원을 내려주세요")
                                     .font(.footnote.weight(.medium))
                                     .foregroundStyle(model.currentDifficulty.assisted ? Color.exitMint : .white.opacity(0.58))
                             }
                             Spacer()
-                            Text("목표 \(model.currentDifficulty.targetScore.formatted())")
+                            Text("목표 \(model.currentDifficulty.targetExited)명")
                                 .font(.system(.caption, design: .monospaced, weight: .bold))
                                 .foregroundStyle(Color.safetyYellow)
                                 .padding(.horizontal, 10)
@@ -75,12 +75,12 @@ struct HomeView: View {
                             stat(title: "최고 점수", value: model.profile.bestScore.formatted())
                             Divider().overlay(Color.white.opacity(0.12))
                             stat(
-                                title: "안전 손잡이",
-                                value: "×\(model.currentDifficulty.safetyHandles)"
+                                title: "운행 노선",
+                                value: "5개 역"
                             )
                         }
 
-                        Button("\(model.profile.highestStage)역 운행 시작") {
+                        Button("60초 운행 시작") {
                             model.startGame()
                         }
                         .buttonStyle(PrimaryButtonStyle())
@@ -89,11 +89,11 @@ struct HomeView: View {
                     .glassCard()
 
                     HStack(spacing: 10) {
-                        Label("탭 한 번", systemImage: "hand.tap.fill")
+                        Label("원탭 제동", systemImage: "hand.tap.fill")
                         Text("•")
-                        Label("3명 연결", systemImage: "point.3.connected.trianglepath.dotted")
+                        Label("실제 열차", systemImage: "tram.fill")
                         Text("•")
-                        Label("함께 하차", systemImage: "door.left.hand.open")
+                        Label("실제 승하차", systemImage: "door.left.hand.open")
                     }
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white.opacity(0.48))
@@ -134,29 +134,74 @@ struct HomeView: View {
     }
 }
 
-private struct PassengerPreview: View {
-    private let kinds = PassengerKind.allCases
-
+private struct TrainPreview: View {
     var body: some View {
-        HStack(spacing: -8) {
-            ForEach(Array(kinds.enumerated()), id: \.offset) { index, kind in
-                ZStack {
-                    Circle()
-                        .fill(Color(hex: kind.tintHex))
-                    Circle()
-                        .stroke(Color.white.opacity(0.8), lineWidth: 2)
-                    Text(kind.badge)
-                        .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundStyle(kind == .star ? Color(hex: 0x5A4510) : .white)
+        ZStack {
+            RoundedRectangle(cornerRadius: 28)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: 0xE9EEF1), Color(hex: 0x9CA9B4)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.safetyYellow)
+                        .frame(height: 9)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 17)
                 }
-                .frame(width: 58, height: 58)
-                .rotationEffect(.degrees(Double(index - 2) * 4))
-                .offset(y: index.isMultiple(of: 2) ? 2 : -2)
-                .zIndex(Double(index))
+                .overlay {
+                    HStack(spacing: 12) {
+                        ForEach(0..<3, id: \.self) { index in
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 9)
+                                    .fill(Color(hex: 0x18324A))
+                                    .frame(width: 72, height: 72)
+                                HStack(spacing: 7) {
+                                    Image(systemName: "person.fill")
+                                        .foregroundStyle(Color(hex: PassengerKind.destinations[index].tintHex))
+                                    Image(systemName: "person.fill")
+                                        .foregroundStyle(Color(hex: PassengerKind.destinations[index + 1].tintHex))
+                                }
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(Color.white.opacity(0.66), lineWidth: 2)
+                                    .frame(width: 32, height: 94)
+                            }
+                        }
+                    }
+                    .padding(.top, 18)
+                }
+                .frame(height: 146)
+
+            HStack(spacing: 190) {
+                wheel
+                wheel
             }
+            .offset(y: 72)
+
+            HStack(spacing: 4) {
+                ForEach(0..<8, id: \.self) { _ in
+                    Capsule()
+                        .fill(Color.white.opacity(0.30))
+                        .frame(width: 20, height: 3)
+                }
+            }
+            .offset(y: -64)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("다섯 종류의 승객")
+        .accessibilityLabel("문과 창문과 바퀴가 보이는 실제 지하철 한 량")
+        .padding(.horizontal, 8)
+        .padding(.bottom, 15)
+    }
+
+    private var wheel: some View {
+        Circle()
+            .fill(Color(hex: 0x1D2430))
+            .frame(width: 39, height: 39)
+            .overlay(Circle().stroke(Color(hex: 0x77889A), lineWidth: 5))
+            .overlay(Circle().fill(Color(hex: 0xC9D0D6)).frame(width: 11, height: 11))
     }
 }
 

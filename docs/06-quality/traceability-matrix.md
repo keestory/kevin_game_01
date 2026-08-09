@@ -14,7 +14,7 @@
 | AD-02 | 보상 확정 callback만 구조 지급 | `RewardedAdOutcome.rewarded`, run/Scene binding | rewarded inactive/stale 테스트 | PASS (현재 mock 경계) |
 | AD-03 | 중복 impression은 1회만 지급 | 메모리 `processedImpressionIDs` | 중복 ID 직접 테스트 없음 | PARTIAL (P2 test debt) |
 | AD-04 | Release는 실제 SDK 전까지 fail closed | `UnavailableRewardedAdService` | Release behavior 테스트 없음 | PARTIAL |
-| DATA-01 | v1 기록을 v2로 보존 migration | custom decoder | v1 fixture 통과 | PASS |
+| DATA-01 | v1/v2 점수·누계를 v3로 보존하고 폐기된 격자 진행을 초기화 | custom decoder | v1/v2 fixture 통과 | PASS |
 | DATA-02 | 미래 schema는 명시적으로 거부하고 원본 보존 | raw version guard, recovery key | SwiftPM reject + Xcode backup 테스트 통과 | PASS |
 | DATA-03 | 손상·저장 실패가 관측 가능 | crash는 피하나 오류 무시 | 테스트/로그 없음 | FAIL (P2) |
 | PRIV-01 | 현 빌드는 tracking/수집 없음과 manifest가 일치 | `PrivacyInfo.xcprivacy`, SDK 없음 | plist/SDK 수동 감사 | PASS |

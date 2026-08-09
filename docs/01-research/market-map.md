@@ -1,5 +1,12 @@
 # Market Map — 한국 iPhone 무료 Games
 
+## 2026-08-09 20:52 KST 최신 재확인
+
+- `관측값/A`: Apple 공식 한국 iPhone 무료 Games 웹 차트는 #1 쿠키런 키우기, #2 여전사 키우기, #3 퍼즐 오브 Z, #7 Block Out, #11 Bus Traffic Fever, #16 Block Blast, #25 Royal Match였다.
+- `관측값/A`: 같은 날 Apple RSS는 갱신 시각 차이로 Bus Traffic Fever를 #13에 표시했다. 동적 차트는 출처와 확인 시각을 함께 기록한다.
+- `관측값/A`: 한국 최고매출 Games RSS Top 25에는 직접 열차·교통 퍼즐이 없고, Gossip Harbor #4, Royal Match #6, Tasty Travels #15가 있었다.
+- `추론`: 실제 움직이는 차량과 승하차는 스토어 획득 훅 후보지만, 장기 유지·매출의 증거가 아니다. 본개발이 아니라 60초 vertical slice와 반복 플레이 테스트만 승인한다.
+
 ## 시장 경계
 
 - 기준: 2026-08-09, 대한민국 iPhone App Store 무료 Games

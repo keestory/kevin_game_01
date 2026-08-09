@@ -14,8 +14,10 @@ struct GameContainerView: View {
                 options: [.ignoresSiblingOrder]
             )
             .ignoresSafeArea()
-            .accessibilityLabel("만원열차 퍼즐 보드")
-            .accessibilityHint("노란 문이 원하는 칸에 왔을 때 화면을 탭하세요")
+            .accessibilityLabel("실제 지하철 정차 게임")
+            .accessibilityHint("노란 정차선에 가까워졌을 때 하단 제동 버튼을 누르세요")
+            .accessibilityValue(gameAccessibilityValue)
+            .accessibilityIdentifier("trainGameScene")
 
             VStack(spacing: 0) {
                 GameHUD(snapshot: model.snapshot) {
@@ -23,18 +25,30 @@ struct GameContainerView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
+
+                StationBanner(snapshot: model.snapshot)
+                    .padding(.top, 9)
+
                 Spacer()
-                QueuePreview(snapshot: model.snapshot)
-                    .padding(.bottom, 12)
-                    .allowsHitTesting(false)
+
+                BrakePanel(snapshot: model.snapshot) {
+                    scene.applyBrake()
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
             }
 
             if model.showTutorial {
-                TutorialOverlay {
-                    model.dismissTutorial()
+                VStack {
+                    Spacer()
+                    TutorialCoachmark()
+                        .padding(.bottom, 174)
                 }
+                .allowsHitTesting(false)
                 .transition(.opacity)
-            } else if model.showRescueOffer {
+            }
+
+            if model.showRescueOffer {
                 RescueOverlay(model: model)
                     .transition(.opacity)
             } else if model.snapshot.phase == .paused {
@@ -46,13 +60,32 @@ struct GameContainerView: View {
             }
         }
         .task {
-            if model.showTutorial {
-                try? await Task.sleep(for: .milliseconds(80))
-                scene.setRunPaused(true)
-            }
+            scene.setReduceMotion(reduceMotion)
+        }
+        .onChange(of: reduceMotion) { _, enabled in
+            scene.setReduceMotion(enabled)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: model.showTutorial)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: model.snapshot.phase)
+    }
+
+    private var gameAccessibilityValue: String {
+        if model.snapshot.doorsOpen {
+            return "승하차 중, 현재 \(model.snapshot.exited)명 하차"
+        }
+        if let grade = model.snapshot.lastBrakeGrade {
+            let label = switch grade {
+            case .perfect: "정위치"
+            case .safe: "안전 정차"
+            case .near: "가까움"
+            case .missed: "역 통과"
+            }
+            return "제동 결과 \(label), 현재 \(model.snapshot.exited)명 하차"
+        }
+        if model.snapshot.canBrake {
+            return "지금 제동, 정차선 접근 중"
+        }
+        return "역 접근 중, \(model.snapshot.timeText)초 남음"
     }
 }
 
@@ -62,13 +95,19 @@ private struct GameHUD: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("\(snapshot.stage)역  ·  목표 \(snapshot.targetScore.formatted())")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("하차")
                     .font(.system(size: 11, weight: .black, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.45))
-                Text("\(snapshot.score.formatted()) / \(snapshot.targetScore.formatted())")
-                    .font(.system(size: 22, weight: .black, design: .rounded))
-                    .contentTransition(.numericText())
+                    .foregroundStyle(.white.opacity(0.46))
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(snapshot.exited.formatted())
+                        .foregroundStyle(Color.exitMint)
+                    Text("/ \(snapshot.targetExited)명")
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.62))
+                }
+                .font(.system(size: 24, weight: .black, design: .rounded))
+                .contentTransition(.numericText())
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -87,11 +126,11 @@ private struct GameHUD: View {
             .accessibilityLabel("남은 시간 \(snapshot.timeText)초")
 
             HStack(spacing: 7) {
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(snapshot.assisted ? "도움 운행" : "안전 손잡이")
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(snapshot.doorsOpen ? "승하차 중" : "운행 구간")
                         .font(.system(size: 11, weight: .black, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.45))
-                    Text("×\(snapshot.safetyHandles)")
+                        .foregroundStyle(snapshot.doorsOpen ? Color.exitMint : .white.opacity(0.46))
+                    Text("\(snapshot.stopIndex)/\(snapshot.stationCount)역")
                         .font(.system(size: 18, weight: .black, design: .rounded))
                 }
                 Button(action: pause) {
@@ -108,7 +147,131 @@ private struct GameHUD: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial.opacity(0.76), in: RoundedRectangle(cornerRadius: 20))
+        .background(.ultraThinMaterial.opacity(0.78), in: RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct StationBanner: View {
+    let snapshot: RunSnapshot
+
+    private let names = ["첫빛역", "구름역", "노을역", "별빛역", "달빛역"]
+    private let exitDemands = [5, 6, 6, 7, 8]
+
+    private var stationIndex: Int {
+        min(names.count - 1, max(0, snapshot.stopIndex - 1))
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: snapshot.doorsOpen ? "door.left.hand.open" : "tram.fill")
+                .foregroundStyle(snapshot.doorsOpen ? Color.exitMint : Color.safetyYellow)
+            Text(snapshot.doorsOpen ? "문이 열렸어요 · 질서 있게 승하차" : "다음 \(names[stationIndex]) · 정위치 시 최대 \(exitDemands[stationIndex])명 하차")
+                .font(.system(.caption, design: .rounded, weight: .heavy))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(Color.trainNavy.opacity(0.78), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.10)))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct BrakePanel: View {
+    let snapshot: RunSnapshot
+    let brake: () -> Void
+
+    var body: some View {
+        VStack(spacing: 9) {
+            GeometryReader { proxy in
+                let width = proxy.size.width
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.10))
+                    Capsule()
+                        .fill(Color.safetyYellow.opacity(0.22))
+                        .frame(width: 82)
+                        .offset(x: width * 0.75 - 41)
+                    Capsule()
+                        .fill(Color.exitMint.opacity(0.82))
+                        .frame(width: 28)
+                        .offset(x: width * 0.75 - 14)
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: 3, height: 28)
+                        .offset(x: width * 0.75 - 1.5)
+                    ZStack {
+                        Circle()
+                            .fill(snapshot.canBrake ? Color.safetyYellow : Color.white.opacity(0.42))
+                        Image(systemName: "tram.fill")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundStyle(Color.trainNavy)
+                    }
+                    .frame(width: 28, height: 28)
+                    .shadow(color: snapshot.canBrake ? Color.safetyYellow.opacity(0.6) : .clear, radius: 7)
+                    .offset(x: min(width - 28, max(0, width * snapshot.approachProgress - 14)))
+                }
+            }
+            .frame(height: 28)
+            .accessibilityHidden(true)
+
+            HStack {
+                Spacer()
+                Text("△ 정위치 정차선")
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.76))
+                Spacer()
+                    .frame(width: 48)
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
+
+            Button(action: brake) {
+                HStack(spacing: 10) {
+                    Image(systemName: snapshot.doorsOpen ? "door.left.hand.open" : "hand.tap.fill")
+                    Text(snapshot.doorsOpen ? "승하차 중" : (snapshot.canBrake ? "지금 제동" : "역 접근 중"))
+                    if snapshot.canBrake && !snapshot.doorsOpen {
+                        Image(systemName: "exclamationmark")
+                            .symbolEffect(.pulse)
+                    }
+                }
+                .font(.system(size: 23, weight: .black, design: .rounded))
+                .foregroundStyle(Color.trainNavy)
+                .frame(maxWidth: .infinity, minHeight: 64)
+                .background(
+                    snapshot.canBrake ? Color.safetyYellow : Color.white.opacity(0.34),
+                    in: RoundedRectangle(cornerRadius: 22)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(Color.white.opacity(snapshot.canBrake ? 0.82 : 0.20), lineWidth: 3)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(!snapshot.canBrake || snapshot.doorsOpen)
+            .accessibilityLabel(snapshot.doorsOpen ? "승하차 중" : (snapshot.canBrake ? "지금 제동" : "역 접근 중"))
+            .accessibilityHint("정차선에 열차 표시가 가까워졌을 때 누르세요")
+            .accessibilityIdentifier("brakeButton")
+        }
+        .padding(12)
+        .background(.ultraThinMaterial.opacity(0.84), in: RoundedRectangle(cornerRadius: 28))
+    }
+}
+
+private struct TutorialCoachmark: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.down.to.line.compact")
+                .font(.title3.weight(.black))
+                .foregroundStyle(Color.safetyYellow)
+            Text("노란 구간에서 ‘지금 제동’을 누르세요")
+                .font(.system(.headline, design: .rounded, weight: .black))
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 13)
+        .background(Color.trainNavy.opacity(0.94), in: Capsule())
+        .overlay(Capsule().stroke(Color.safetyYellow.opacity(0.65), lineWidth: 2))
+        .shadow(color: .black.opacity(0.28), radius: 14, y: 7)
     }
 }
 
@@ -117,19 +280,19 @@ private struct RescueOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.trainNavy.opacity(0.90).ignoresSafeArea()
+            Color.trainNavy.opacity(0.92).ignoresSafeArea()
             VStack(spacing: 18) {
-                Image(systemName: "lifepreserver.fill")
+                Image(systemName: "tram.fill.tunnel")
                     .font(.system(size: 48))
                     .foregroundStyle(Color.alertCoral)
 
-                Text("한 칸만 비웠다면 출발!")
+                Text("다음 역이면 도착할 수 있어요")
                     .font(.system(.title, design: .rounded, weight: .black))
                     .multilineTextAlignment(.center)
 
-                Text("가장 높은 두 칸에서 2명씩 하차하고\n제한 시간을 15초 늘려드려요.")
+                Text("추가 역 1회에서 최대 8명이 더 내릴 수 있어요.\n광고 없이 같은 운행 재시도도 가능합니다.")
                     .font(.system(.body, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.66))
+                    .foregroundStyle(.white.opacity(0.68))
                     .multilineTextAlignment(.center)
 
                 if let message = model.rescueErrorMessage {
@@ -147,13 +310,9 @@ private struct RescueOverlay: View {
                             if model.isRescueLoading {
                                 ProgressView().tint(Color.trainNavy)
                             } else {
-                                Image(systemName: model.hasPendingRescueReward ? "checkmark.seal.fill" : (model.rescueOfferIsFree ? "cross.case.fill" : "play.rectangle.fill"))
+                                Image(systemName: model.rescueOfferIsFree ? "ticket.fill" : "play.rectangle.fill")
                             }
-                            Text(
-                                model.hasPendingRescueReward
-                                    ? "받은 보상으로 구조 계속"
-                                    : (model.rescueOfferIsFree ? "첫 운행 무료 구조" : "광고 1회 보고 구조 요청")
-                            )
+                            Text(model.rescueOfferIsFree ? "첫 운행 무료 연장 · 다음 역 +12초" : "광고 1회 보고 다음 역 +12초")
                         }
                     }
                     .buttonStyle(PrimaryButtonStyle())
@@ -161,104 +320,16 @@ private struct RescueOverlay: View {
                     .accessibilityIdentifier("acceptRescueButton")
                 }
 
-                Button("결과 보고 새 운행 시작") {
-                    model.declineRescue()
+                Button("무료로 같은 운행 다시") {
+                    model.restartFromRescueOffer()
                 }
                 .font(.headline.weight(.bold))
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(.white.opacity(0.76))
                 .padding(.vertical, 12)
                 .disabled(model.isRescueLoading)
                 .accessibilityIdentifier("declineRescueButton")
             }
             .padding(28)
-        }
-    }
-}
-
-private struct QueuePreview: View {
-    let snapshot: RunSnapshot
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Label("다음", systemImage: "person.fill")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white.opacity(0.55))
-            ForEach(Array(snapshot.upcoming.enumerated()), id: \.offset) { index, kind in
-                Text(kind.badge)
-                    .font(.system(size: index == 0 ? 18 : 14, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(hex: kind.tintHex))
-                    .frame(width: index == 0 ? 34 : 29, height: index == 0 ? 34 : 29)
-                    .background(Color.white.opacity(index == 0 ? 0.11 : 0.07), in: Circle())
-                    .opacity(index == 0 ? 1 : 0.65)
-            }
-            Text("\(snapshot.station)/4역")
-                .font(.system(.caption, design: .rounded, weight: .heavy))
-                .foregroundStyle(Color.exitMint)
-                .padding(.leading, 3)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 9)
-        .background(.ultraThinMaterial.opacity(0.70), in: Capsule())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("다음 승객 \(snapshot.upcoming.map(\.name).joined(separator: ", "))")
-    }
-}
-
-private struct TutorialOverlay: View {
-    let start: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.trainNavy.opacity(0.90).ignoresSafeArea()
-            VStack(spacing: 24) {
-                Text("탭 한 번이면 출발!")
-                    .font(.system(size: 30, weight: .black, design: .rounded))
-
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.warmIvory)
-                    HStack(spacing: 12) {
-                        Image(systemName: "arrow.left.and.right")
-                            .foregroundStyle(Color.trainNavy.opacity(0.45))
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 15)
-                                .fill(Color.safetyYellow)
-                                .frame(width: 66, height: 62)
-                            Text("★")
-                                .font(.system(size: 28, weight: .black))
-                                .foregroundStyle(Color(hex: PassengerKind.star.tintHex))
-                        }
-                        Image(systemName: "hand.tap.fill")
-                            .font(.title)
-                            .foregroundStyle(Color.trainNavy)
-                    }
-                }
-                .frame(height: 126)
-
-                VStack(alignment: .leading, spacing: 16) {
-                    tutorialRow(number: "1", text: "노란 문이 원하는 칸에 오면 아무 곳이나 탭")
-                    tutorialRow(number: "2", text: "같은 배지 3명을 연결하면 함께 하차")
-                    tutorialRow(number: "3", text: "안전 손잡이를 활용해 목표 점수를 달성")
-                }
-
-                Button("연습 없이 바로 출발") { start() }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .accessibilityIdentifier("dismissTutorialButton")
-            }
-            .padding(24)
-        }
-    }
-
-    private func tutorialRow(number: String, text: String) -> some View {
-        HStack(spacing: 13) {
-            Text(number)
-                .font(.system(.headline, design: .rounded, weight: .black))
-                .foregroundStyle(Color.trainNavy)
-                .frame(width: 34, height: 34)
-                .background(Color.exitMint, in: Circle())
-            Text(text)
-                .font(.system(.body, design: .rounded, weight: .bold))
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -269,7 +340,7 @@ private struct PauseOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.trainNavy.opacity(0.84).ignoresSafeArea()
+            Color.trainNavy.opacity(0.86).ignoresSafeArea()
             VStack(spacing: 17) {
                 Image(systemName: "tram.fill")
                     .font(.system(size: 44))

@@ -1,114 +1,70 @@
-# Draft Acceptance Criteria — 한 칸만! 만원열차
+# Acceptance Criteria — 실제 열차 60초 vertical slice
 
-> 상태: DRAFT / 검증 전
-> 판정 기준: `Met`, `Partial`, `Fail`, `Not built`, `Not tested`
-> P0/P1가 하나라도 열려 있으면 UX/Product Gate는 Fail이다.
+> 기준일: 2026-08-09
+> 상태: 구현 검증 중 / 사용자 테스트 전
+> P0/P1가 열려 있으면 Solution Gate는 `Revise`다.
 
-## 1. 심각도
+## Core & Timing
 
-- **P0:** 크래시, 진행 데이터 손실, 광고 보상 중복/오지급, 플레이 차단, 개인정보·정책 중대 위반.
-- **P1:** 핵심 규칙 이해 실패, 잘못된 사용자 문구, 접근성 핵심 과업 불가, 첫 실패/광고 오선택, 재현 가능한 주요 UX 결함.
-- **P2:** 우회 가능한 시각·편의 문제, 출시 후 개선 가능한 비핵심 기능.
-
-## 2. Core Gameplay
-
-| ID | Priority | Given / When / Then | 검증 | 현재 상태 |
+| ID | Pri | Given / When / Then | 검증 | 상태 |
 |---|---:|---|---|---|
-| AC-CORE-01 | P0 | Given 빈 보드, When 유효 열을 탭, Then 승객이 가장 낮은 빈칸에 1회 배치된다 | 단위+UI | Met/실사용 미검증 |
-| AC-CORE-02 | P0 | Given 같은 목적지 3명이 상하좌우 연결, When 마지막 승객 배치, Then 그룹이 하차하고 점수가 1회 반영된다 | 단위 | Met |
-| AC-CORE-03 | P0 | Given 같은 시드·스테이지·규칙, When 동일 수의 승객 생성, Then 순서가 동일하다 | 단위 | Met |
-| AC-CORE-04 | P1 | Given 첫 사용자, When 설명 없이 시작, Then 60초 안에 첫 배치를 완료한다 | 5명 테스트 | Not tested |
-| AC-CORE-05 | P1 | Given 첫 사용자, When 첫 매치를 경험, Then 90초 안에 “같은 배지 3명” 규칙을 설명한다 | 5명 테스트 | Not tested |
-| AC-CORE-06 | P1 | Given 색각 차이, When 승객을 판독, Then 색 없이 도형만으로도 목적지를 구분한다 | 접근성 테스트 | Partial |
+| AC-CORE-01 | P0 | 같은 StationPlan과 탭 시각이면 프레임률·효과와 무관하게 같은 등급·하차·점수가 나온다 | 단위 | Met |
+| AC-CORE-02 | P0 | 5개 역은 하차 가능 5/6/6/7/8명과 지정 제동 창을 가진다 | 단위 | Met |
+| AC-CORE-03 | P0 | 경계값은 정위치→안전→가까움에 포함되고 그 밖은 통과다 | 단위 | Met |
+| AC-CORE-04 | P0 | 목표 점수를 일찍 얻어도 5번째 역 전 결과 화면으로 이동하지 않는다 | 통합 | 구현, 테스트 추가 필요 |
+| AC-CORE-05 | P1 | 첫 제동 버튼은 시작 후 1초 안에 활성 가능 상태가 되고 최적 입력은 약 6초다 | UI/관찰 | 구현, 미측정 |
+| AC-CORE-06 | P1 | 첫 단계 목표는 22명이며 신규 1차 성공률 65~80%를 목표로 조정한다 | 베타 | Not tested |
 
-## 3. Onboarding & Difficulty
+## Visual & Feedback
 
-| ID | Priority | Given / When / Then | 검증 | 현재 상태 |
+| ID | Pri | Given / When / Then | 검증 | 상태 |
 |---|---:|---|---|---|
-| AC-ONB-01 | P1 | Given 첫 실행, When 홈 표시, Then 5초 안에 운행 시작 CTA를 찾는다 | 5명 테스트 | Not tested |
-| AC-ONB-02 | P1 | Given 첫 실행, When 운행 시작, Then 가입·알림·광고가 플레이보다 먼저 나타나지 않는다 | UI | Met |
-| AC-ONB-03 | P1 | Given 튜토리얼 종료, When 플레이 시작, Then 준비 없이 시간이 부당하게 소모되지 않는다 | UI/관찰 | Not tested |
-| AC-DIFF-01 | P1 | Given 1~3역, When 신규 사용자가 플레이, Then 최초 시도 클리어율 목표가 90% 이상이다 | 계측 베타 | Not tested |
-| AC-DIFF-02 | P1 | Given 2회 연속 실패, When 홈으로 복귀, Then 혼잡 완화 적용과 변경점을 사용자가 인지한다 | UI+5명 | Partial/Not tested |
-| AC-DIFF-03 | P1 | Given 혼잡 완화, When 사용자에게 설명, Then 70% 이상이 벌이나 몰래 조작으로 인식하지 않는다 | 설문 | Not tested |
+| AC-VIS-01 | P1 | 첫 프레임 0.5초 내 화면 폭 55% 이상의 차체·문·창·바퀴·선로·플랫폼이 보인다 | 캡처+5명 | 구현, 사용자 미검증 |
+| AC-VIS-02 | P1 | 승객은 머리·몸·다리 형태로 문을 실제 통과하고 원형 토큰 낙하로 대체되지 않는다 | 캡처 | Met(코드), 시각 QA 필요 |
+| AC-VIS-03 | P1 | 제동 결과마다 감속·텍스트·사운드·햅틱 중 최소 3채널이 일치한다 | 탐색 | 구현, 실기기 미검증 |
+| AC-VIS-04 | P1 | 정위치 파티클 ≤20, 급정차 불꽃 ≤8, 전체 화면 섬광 없음 | 코드+탐색 | Met(코드) |
+| AC-VIS-05 | P1 | 앱 런타임은 실제 교통기관 로고·노선도·안내음 또는 ImageGen 콘셉트 이미지를 포함하지 않는다 | 자산 감사 | Met |
 
-## 4. Failure, Safety Handles & Rescue
+## Onboarding & UX
 
-| ID | Priority | Given / When / Then | 검증 | 현재 상태 |
+| ID | Pri | Given / When / Then | 검증 | 상태 |
 |---|---:|---|---|---|
-| AC-FAIL-01 | P0 | Given 손잡이가 남음, When 가득 찬 열에 배치, Then 손잡이 1개만 차감하고 규칙대로 승객을 제거한다 | 단위+UI | Partial |
-| AC-FAIL-02 | P1 | Given 손잡이 사용, When 복구, Then 원인 열·차감·감속을 시각/텍스트/햅틱 중 2개 이상으로 알린다 | 관찰 | Partial |
-| AC-RES-01 | P0 | Given 첫 구조, When 수락, Then 광고 없이 평생 한 번만 지급된다 | 단위/통합 | Partial |
-| AC-RES-02 | P0 | Given 광고 callback, When 동일 impression ID가 반복, Then 보상은 한 번만 지급된다 | 통합 | Partial: set 기반 guard 존재, 명시적 중복 callback 회귀 테스트와 실제 SDK E2E 없음 |
-| AC-RES-03 | P0 | Given 광고 거절·실패·불가, When 결과 화면 이동, Then 새 판을 무료로 즉시 시작할 수 있다 | UI | Partial |
-| AC-RES-04 | P1 | Given 구조 화면, When 사용자 5명이 확인, Then 5/5가 광고 여부·보상·거절 결과를 정확히 설명한다 | 5명 테스트 | Not tested |
-| AC-RES-05 | P1 | Given 구조 화면, Then 광고·거절 CTA가 각각 명확한 대비와 최소 44×44pt 영역을 가진다 | 접근성 감사 | Not measured |
-| AC-RES-06 | P1 | Given 부활 사용 기록, When 공식 경쟁 등록, Then 제외 또는 구조 기록으로 명확히 분리한다 | 통합 | Not built |
-| AC-RES-07 | P0 | Given 유효 보상 callback이 앱 비활성 중 도착, Then 현재 런에 pending으로 보관하고 자동 재개하지 않으며 복귀 후 명시적 CTA로 적용한다 | 단위+코드 감사 | Met at model/source; 실제 SDK UI E2E 미검증 |
-| AC-RES-08 | P0 | Given 이전 런의 늦은 callback, Then 새 런·프로필에 보상을 적용하지 않는다 | 단위 | Met |
+| AC-UX-01 | P1 | 텍스트를 가린 2초 노출에서 5/5가 지하철/열차로 식별한다 | 5명 | Not tested |
+| AC-UX-02 | P1 | 5초 노출 후 4/5가 정차선에 맞춰 탭해 승객을 내리는 게임이라고 설명한다 | 5명 | Not tested |
+| AC-UX-03 | P1 | 첫 제동 무도움 입력 중앙값 ≤8초다 | 5명 | Not tested |
+| AC-UX-04 | P1 | 4/5 이상이 요청 없이 두 번째 운행을 시작하고 재미 중앙값 ≥4/7이다 | 5명×3회 | Not tested |
+| AC-UX-05 | P1 | 튜토리얼은 플레이를 막지 않고 첫 제동 결과까지 유지되며, 첫 결과 후 사라진다 | UI/단위 | 구현, E2E 필요 |
 
-## 5. Sharing & Friend Challenge
+## Failure, Ads & Sharing
 
-| ID | Priority | Given / When / Then | 검증 | 현재 상태 |
+| ID | Pri | Given / When / Then | 검증 | 상태 |
 |---|---:|---|---|---|
-| AC-SHARE-01 | P1 | Given 텍스트만 공유, Then CTA는 `기록 공유하기`로 사실대로 표시한다 | 콘텐츠 감사 | Met (코드 확인) |
-| AC-SHARE-02 | P1 | Given `같은 막차` CTA, When 친구가 링크 실행, Then 동일 시드·규칙·스테이지로 진입한다 | E2E | Not built |
-| AC-SHARE-03 | P0 | Given 친구 보상, Then 설치·가입·평점이 아니라 도전 완료 후 양쪽에 동일하게 지급한다 | 정책+통합 | Not built |
-| AC-SHARE-04 | P0 | Given 초대, Then 연락처 업로드나 가입이 코어 플레이 조건이 아니다 | 개인정보 감사 | Current pass |
-| AC-SHARE-05 | P1 | Given 도전 결과, Then 부활·보정 여부와 기록 조건이 동일하다 | E2E | Not built |
+| AC-FAIL-01 | P0 | 목표 미달이어도 광고·초대·가입 없이 같은 운행을 1탭으로 재시작한다 | UI | 구현, E2E 필요 |
+| AC-RES-01 | P0 | 목표까지 8명 초과 남으면 Continue를 제안하지 않는다 | 단위/통합 | Met(장면 조건) |
+| AC-RES-02 | P0 | 첫 무료 Continue는 추가 역 1회·+12초만 지급한다 | 통합 | 구현, E2E 필요 |
+| AC-RES-03 | P0 | 광고 reward는 동일 impression에 1회, 이전 런에는 0회 적용된다 | 단위 | 기존 테스트 Met |
+| AC-RES-04 | P1 | 5/5가 광고 여부·보상·거절 결과를 정확히 설명한다 | 5명 | Not tested |
+| AC-SHARE-01 | P1 | CTA는 설치 보상·동일 시드가 아니라 `운행 기록 공유하기`로 정확히 표현한다 | 콘텐츠 | Met |
 
-## 6. Content & Localization
+## Accessibility
 
-| ID | Priority | Given / When / Then | 검증 | 현재 상태 |
+| ID | Pri | Given / When / Then | 검증 | 상태 |
 |---|---:|---|---|---|
-| AC-COPY-01 | P1 | Given 스테이지 성공, Then 실제 역 번호가 제목에 표시된다 | 단위+코드 감사 | Met; 회귀 테스트 포함 |
-| AC-COPY-02 | P1 | Given 효과음 미구현, Then 작동하지 않는 효과음 토글을 노출하지 않는다 | 코드 감사 | Met; 햅틱 토글만 노출 |
-| AC-COPY-03 | P1 | Given 실패, Then 비난·죄책감 대신 실패 원인과 무료 재도전을 설명한다 | 콘텐츠 테스트 | Partial |
-| AC-COPY-04 | P1 | Given 광고 제안, Then `광고 1회`, 정확한 보상, 보상 미지급 조건을 한국어로 명시한다 | 콘텐츠 테스트 | Partial |
-| AC-L10N-01 | P2 | Given 한국어 외 언어 추가, Then 모든 사용자 문구가 Strings Catalog에서 관리된다 | 정적 검사 | Not built |
-| AC-L10N-02 | P1 | Given 콘텐츠, Then 실제 교통기관 상표·노선도를 복제하지 않는다 | 법무/디자인 | Current pass, 최종 감사 필요 |
+| AC-A11Y-01 | P1 | 제동 버튼은 64pt 이상이며 Voice Control·Switch Control로 작동한다 | 실기기 | 크기 Met, 보조기술 Not tested |
+| AC-A11Y-02 | P1 | Reduce Motion에서 먼 도시·속도선·객차 진동·흔들림·파티클이 사라진다 | 코드+실기기 | 코드 Met, 실기기 필요 |
+| AC-A11Y-03 | P1 | 사운드·햅틱을 각각 꺼도 접근·제동·문·결과를 시각적으로 안다 | 탐색 | Partial |
+| AC-A11Y-04 | P1 | 필수 정보는 색 외에 선·아이콘·도형·텍스트·숫자로 중복된다 | 코드+5명 | Partial |
+| AC-A11Y-05 | P1 | iPhone SE급·17 Pro, 최대 Larger Text에서 HUD·열차·CTA가 겹치지 않는다 | 스냅샷/실기기 | Not tested |
 
-## 7. Accessibility
+## Quality & Performance
 
-| ID | Priority | Given / When / Then | 검증 | 현재 상태 |
+| ID | Pri | Given / When / Then | 검증 | 상태 |
 |---|---:|---|---|---|
-| AC-A11Y-01 | P1 | Given VoiceOver, When 핵심 플레이, Then 현재 열·다음 승객·결과를 인지하고 배치할 수 있다 | 실기기 | Fail/Not supported |
-| AC-A11Y-02 | P1 | Given Larger Text 최대 접근성 크기, Then 홈·튜토리얼·구조·결과의 텍스트와 CTA가 잘리지 않는다 | 스냅샷+실기기 | Not tested |
-| AC-A11Y-03 | P1 | Given Reduce Motion, Then SpriteKit 배경 이동·입자·확대 축소가 정적 또는 감소 상태가 된다 | 실기기 | Fail/Partial |
-| AC-A11Y-04 | P1 | Given 주요 버튼, Then 기본 목표 크기는 44×44pt 이상이다 | 코드 측정 | Met for audited controls: 일시정지 44×44pt |
-| AC-A11Y-05 | P1 | Given HUD, Then 필수 정보는 11pt 이상이며 본문은 가능한 17pt 기본을 따른다 | 코드 측정 | Met for audited HUD minimum: 11pt; Larger Text는 별도 미검증 |
-| AC-A11Y-06 | P1 | Given 모든 필수 텍스트, Then WCAG 2.2 AA 대비를 측정·통과한다 | 도구 측정 | Not measured |
-| AC-A11Y-07 | P1 | Given 소리 꺼짐, Then 모든 중요한 상태는 시각 또는 햅틱으로도 전달된다 | 실기기 | Partial |
+| AC-QA-01 | P0 | SwiftPM, iOS 앱 단위, UI smoke, unsigned Simulator build가 모두 통과한다 | CI/로컬 | 재검증 중 |
+| AC-QA-02 | P1 | 최소 지원 기기 평균 ≥55fps, p95 ≤22ms, 동시 파티클 ≤24다 | Instruments | 파티클 코드 Met, 성능 Not tested |
+| AC-QA-03 | P1 | pause/background에서 clock·Scene action·audio가 멈추고 자동 재개하지 않는다 | 통합/탐색 | Partial |
+| AC-QA-04 | P1 | 10회 연속 운행의 메모리 증가 ≤10MB, 누수 0이다 | Instruments | Not tested |
 
-## 8. Analytics & Privacy
+## Gate
 
-| ID | Priority | Given / When / Then | 검증 | 현재 상태 |
-|---|---:|---|---|---|
-| AC-DATA-01 | P0 | Given 이벤트 발생, Then 이벤트명·버전·세션·스테이지·규칙 버전을 기록한다 | 통합 | Not built |
-| AC-DATA-02 | P0 | Given 분석 데이터, Then 이름·연락처·공유 대상·정확한 광고 식별자를 수집하지 않는다 | 데이터 감사 | Not built |
-| AC-DATA-03 | P0 | Given SDK 추가, Then Privacy Manifest와 App Store 데이터 공개가 실제 동작과 일치한다 | 개인정보 감사 | Not built |
-| AC-DATA-04 | P1 | Given 테스트 세션, Then 핵심 퍼널 이벤트 누락·중복이 각각 1% 미만이다 | 데이터 QA | Not tested |
-| AC-DATA-05 | P1 | Given ShareLink, Then OS가 완료 결과를 제공하지 않으면 `share_completed`를 추정 생성하지 않는다 | 코드 감사 | Not built |
-
-## 9. 현재 Open P0/P1
-
-### P0
-
-- 분석/광고 SDK 도입 전 데이터 흐름과 보상 idempotency 통합 테스트가 없음.
-- 향후 친구 보상은 서버 검증·중복 방지·정책 검토가 없음.
-
-현재 프로덕션 SDK와 친구 보상이 미구현이므로 즉시 사용자 피해는 없지만, 구현 전 차단 조건이다.
-
-### P1
-
-1. VoiceOver로 코어 보드 조작 불가.
-2. SpriteKit이 Reduce Motion을 충분히 반영하지 않음.
-3. 대비, Larger Text, Switch Control, Voice Control 미검증.
-4. 구조 광고 보상·거절 이해도 사용자 테스트 미실행.
-5. 최소 5명 사용성 테스트 미실행.
-
-HUD 11pt, 일시정지 44pt, `shareRecordButton` 정합성 항목은 2026-08-09 현재 코드 감사에서 해소됐다.
-
-## 10. Gate
-
-**FAIL.** 위 P1을 해소하고 최소 5명 테스트에서 핵심 과업 4/5, 광고 이해 5/5를 충족해야 재판정한다.
+현재 판정은 **Revise**다. 자동 테스트 통과 외에 5명 사용성·접근성·실기기 성능 P1이 남아 있다.

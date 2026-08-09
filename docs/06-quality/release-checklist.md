@@ -6,7 +6,7 @@
 
 - [ ] P0/P1가 0개이며 추적 매트릭스가 최신이다.
 - [ ] 보상 callback의 중복 ID·dismissed·failed·pending 완료 테스트가 통과한다. runID·inactive 테스트는 완료했다.
-- [ ] v2 round-trip·손상·음수 migration fixture가 통과한다. v1/future-version/recovery 테스트는 완료했다.
+- [ ] v3 round-trip·손상·음수 migration fixture가 통과한다. v1/v2→v3, future-version/recovery 테스트는 완료했다.
 - [ ] 핵심 퍼널 이벤트 schema와 검증 가능한 관측 수단이 있다. 분석을 의도적으로 미도입한다면 출시 Go/No-Go 승인과 대체 측정 계획을 기록한다.
 - [ ] 앱/단위/UI/Release 빌드가 CI 필수 체크다.
 - [ ] 접근성, 한국어, 작은/큰 iPhone, 실제 최저 지원 기기 성능을 승인했다.

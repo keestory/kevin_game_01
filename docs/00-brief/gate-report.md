@@ -71,3 +71,35 @@
 ## 다음 Gate
 
 현재 단계는 **Stage 2 Problem Validation**, 전체 판정은 **Revise**다. 사용자 모집, 인터뷰 12명, 일기 8명, 사용성 5명을 수행하기 전에는 성장·수익 기능 범위를 확정하지 않는다. 다음 담당은 User Research, Product Planning, UX Research, Data & Experimentation이며 Red Team이 Gate 2를 다시 반박한다.
+
+## 2026-08-09 21:10 KST 재작업 Gate — 최신 판정
+
+사용자 직접 피드백으로 기존 Solution Definition이 실패했다. 현재 단계는 **Stage 4 Solution Definition 재작업**, 판정은 **Revise**다.
+
+| 기준 | 판정 | 근거 |
+|---|---|---|
+| 2초 안에 실제 열차로 식별 | 부분 Pass | 차체·창문·바퀴·선로·플랫폼·미닫이문을 SpriteKit 영구 노드로 구현. 실제 5명 노출 테스트는 미실행 |
+| 5초 안에 목표 이해 | 부분 Pass | 하단 64pt 제동 CTA, 고정 정차선, `하차 0/22명` HUD 구현. 사용자 테스트 미실행 |
+| 핵심 행동의 효과 | Pass(구현) | 감속, 문 개폐, 사람 형태 승하차, 패럴랙스, 정위치 파티클, 급정차 흔들림, 햅틱, 코드 생성 사운드 구현 |
+| 순수 규칙 결정성 | Pass | 제동 경계·하차 계산·동일 입력 결정성 SwiftPM 테스트 추가 |
+| 광고·재시도 공정성 | 부분 Pass | 무료 재시도 문구와 조건부 +12초 Continue 구현; 실제 광고 SDK·이해도 테스트 없음 |
+| 사용자 재미·재시도 | Fail/Not Run | 최소 5명 중 4명 자발적 두 번째 운행, 재미 중앙값 4/7 검증 전 |
+
+따라서 프로토타입 구현은 진행하되 Build Readiness와 1위 가능성은 승인하지 않는다.
+
+## 2026-08-09 Product Harness Gate
+
+공식 ProductSpec v0.1을 현재 사업 가설의 Product Harness로 채택했다. 기준 계약은 `docs/product-specs/real-train-braking.product-spec.md` revision 1이며, 격자→실제 열차·광고 판단은 별도 Decision Trace에 기록한다.
+
+| Harness Gate | 판정 | 근거/차단 |
+|---|---|---|
+| Product Spec schema | Pass | 공식 `@productspec/parser` 로컬 검증 |
+| Decision Trace schema | Pass | 공식 `validate-trace` 로컬 검증 |
+| Prototype AC-1~AC-7 | Revise | ProductSpec/Trace 유효, SwiftPM 17/17, Xcode unit+Scene 25/25, UI 1/1, PrivacyInfo lint, secret pattern 0건. AC-4 문 개방 연속 영상과 AC-5 실기기 접근성 증거는 없음 |
+| Problem discovery | Fail / Not Run | 인터뷰 0/12, 일기 0/8 |
+| UX validation AC-8 | Fail / Not Run | 서로 다른 신규 사용자 2초 0/5, 5초 0/5, 3회 플레이 0/5 |
+| TestFlight AC-9 | Fail / Not Run | 실기기 soak·성능·누수·30명 cohort 미실행 |
+| App Store AC-10 | Blocked | 고유 bundle ID, 서명, App Store Connect, 메타데이터, 지원 URL 미확정 |
+| Business Validation | Fail | 유지율·CPI·D90 contribution LTV·운영비 증거 없음 |
+
+현재 허용 범위는 **vertical slice 내부 검증과 외부 사용자 모집**까지다. TestFlight·한국 App Store·유료 UA 확대는 각 Gate의 증거가 Agent Run과 Related Artifacts에 연결된 뒤 별도 승인한다.

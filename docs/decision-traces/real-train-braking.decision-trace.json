@@ -1,0 +1,52 @@
+{
+  "decision_trace_format_version": "0.1",
+  "trace_id": "real-train-braking-trace",
+  "title": "정위치! 만원열차 Product Decision Trace",
+  "created_at": "2026-08-09T12:30:00Z",
+  "updated_at": "2026-08-09T12:30:00Z",
+  "subject": {
+    "type": "product_spec",
+    "id": "real-train-braking",
+    "product_spec_path": "../product-specs/real-train-braking.product-spec.md",
+    "product_spec_revision": 1
+  },
+  "events": [
+    {
+      "event_id": "replace-abstract-grid-with-real-train",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T11:40:00Z",
+      "summary": "The 5 by 7 abstract passenger grid failed the project owner's train fantasy, fun, graphics, and effects expectations.",
+      "drift": {
+        "spec_claim": "The earlier implementation represented passengers as tokens in a grid.",
+        "observed_reality": "The project owner expected a real train, real doors, visible passengers, and immediate effects because the game is about getting off a train."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "A side-view train with one-tap braking makes the theme part of the input and outcome instead of decorative framing.",
+        "approved_by": ["Project owner", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "reject-forced-ads-and-install-bounties",
+      "event_type": "intent_decision",
+      "occurred_at": "2026-08-09T11:55:00Z",
+      "summary": "Early difficulty, forced ads, and friend install rewards were reviewed as possible growth mechanics.",
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Current market evidence supports testing an opt-in Continue but does not support forced ads or friend install and signup bounties as success conditions.",
+        "approved_by": ["Project owner", "Market Strategy", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "adopt-productspec-product-harness",
+      "event_type": "spec_revision",
+      "occurred_at": "2026-08-09T12:30:00Z",
+      "summary": "The project adopted ProductSpec revision 1 as its Product Harness contract for discovery, validation, implementation evidence, and conditional launch.",
+      "decision": {
+        "outcome": "record_learning",
+        "rationale": "The service must not claim launch readiness when only code evidence exists; user, business, TestFlight, and App Store gates need durable IDs and receipts.",
+        "approved_by": ["Project owner", "Product Orchestrator"]
+      }
+    }
+  ]
+}

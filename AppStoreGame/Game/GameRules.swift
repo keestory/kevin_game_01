@@ -182,15 +182,105 @@ enum GameRules {
         }
 
         let assisted = consecutiveFailures >= 2
+        let baseTargetExited = min(32, 22 + level - 1)
         return StageDifficulty(
             stage: level,
-            duration: base.0,
-            targetScore: assisted ? Int(Double(base.1) * 0.90) : base.1,
+            duration: 60,
+            targetScore: assisted
+                ? Int(Double(min(1_500, 900 + (level - 1) * 100)) * 0.90)
+                : min(1_500, 900 + (level - 1) * 100),
             selectorPeriodScale: base.2 * (assisted ? 1.10 : 1),
             destinationCount: base.3,
             transferInterval: assisted ? min(base.4, 7) : base.4,
             safetyHandles: base.5,
-            assisted: assisted
+            assisted: assisted,
+            targetExited: assisted ? Int(ceil(Double(baseTargetExited) * 0.90)) : baseTargetExited,
+            stationCount: 5
+        )
+    }
+
+    static func stationPlan(index: Int, difficulty: StageDifficulty) -> StationPlan {
+        let clampedIndex = min(5, max(1, index))
+        let arrayIndex = clampedIndex - 1
+        let names = ["첫빛역", "구름역", "노을역", "별빛역", "달빛역"]
+        let exitDemands = [5, 6, 6, 7, 8]
+        let perfectWindows: [TimeInterval] = [0.25, 0.22, 0.19, 0.17, 0.15]
+        let safeWindows: [TimeInterval] = [0.55, 0.48, 0.42, 0.36, 0.32]
+        let nearWindows: [TimeInterval] = [0.85, 0.75, 0.65, 0.56, 0.50]
+        let speedScales = [1.0, 1.0, 1.10, 1.18, 1.25]
+
+        let exitDemand = exitDemands[arrayIndex]
+        let speedScale = speedScales[arrayIndex]
+        let assistanceScale = difficulty.assisted ? 1.10 : 1.0
+        let approachDuration = 8.0 / speedScale * assistanceScale
+
+        return StationPlan(
+            name: names[arrayIndex],
+            exitDemand: exitDemand,
+            boardDemand: Int(ceil(Double(exitDemand) * (difficulty.assisted ? 0.50 : 0.60))),
+            approachDuration: approachDuration,
+            optimalBrakeTime: approachDuration * 0.75,
+            perfectWindow: perfectWindows[arrayIndex],
+            safeWindow: safeWindows[arrayIndex],
+            nearWindow: nearWindows[arrayIndex],
+            speedScale: speedScale
+        )
+    }
+
+    static func resolveBrake(tappedAt: TimeInterval?, plan: StationPlan) -> BrakeResolution {
+        guard let tappedAt, tappedAt.isFinite else {
+            return BrakeResolution(
+                timingError: nil,
+                grade: .missed,
+                exitedCount: 0,
+                scoreGained: 0,
+                finalOffset: 1
+            )
+        }
+
+        let timingError = tappedAt - plan.optimalBrakeTime
+        let finalOffset = min(
+            1,
+            max(-1, timingError / max(plan.nearWindow, .leastNonzeroMagnitude))
+        )
+        guard (0...plan.approachDuration).contains(tappedAt) else {
+            return BrakeResolution(
+                timingError: timingError,
+                grade: .missed,
+                exitedCount: 0,
+                scoreGained: 0,
+                finalOffset: finalOffset
+            )
+        }
+
+        let timingMagnitude = abs(timingError)
+        let grade: BrakeGrade
+        let exitRatio: Double
+        let score: Int
+        if timingMagnitude <= plan.perfectWindow {
+            grade = .perfect
+            exitRatio = 1
+            score = 300
+        } else if timingMagnitude <= plan.safeWindow {
+            grade = .safe
+            exitRatio = 0.80
+            score = 200
+        } else if timingMagnitude <= plan.nearWindow {
+            grade = .near
+            exitRatio = 0.50
+            score = 100
+        } else {
+            grade = .missed
+            exitRatio = 0
+            score = 0
+        }
+
+        return BrakeResolution(
+            timingError: timingError,
+            grade: grade,
+            exitedCount: Int(ceil(Double(plan.exitDemand) * exitRatio)),
+            scoreGained: score,
+            finalOffset: finalOffset
         )
     }
 

@@ -1,0 +1,31 @@
+name: Product Harness
+
+on:
+  pull_request:
+    paths:
+      - "docs/product-specs/**"
+      - "docs/decision-traces/**"
+      - "docs/agent-runs/**"
+      - ".github/workflows/product-harness.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/product-specs/**"
+      - "docs/decision-traces/**"
+      - "docs/agent-runs/**"
+      - ".github/workflows/product-harness.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-product-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Product Specs, Decision Traces, and Agent Runs
+        uses: gokulrajaram/ProductSpec@97b90b6288bbcd159bbec0f75fac9bf8212d2dc8
+        with:
+          files: "docs/product-specs/**/*.product-spec.md"
+          decision_traces: "docs/decision-traces/**/*.decision-trace.json"
+          agent_runs: "docs/agent-runs/**/*.agent-run.json"

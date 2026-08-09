@@ -14,6 +14,34 @@ enum RunPhase: Equatable {
     case finished
 }
 
+enum BrakeGrade: String, CaseIterable, Codable, Equatable {
+    case perfect
+    case safe
+    case near
+    case missed
+}
+
+struct StationPlan: Equatable {
+    let name: String
+    let exitDemand: Int
+    let boardDemand: Int
+    let approachDuration: TimeInterval
+    let optimalBrakeTime: TimeInterval
+    let perfectWindow: TimeInterval
+    let safeWindow: TimeInterval
+    let nearWindow: TimeInterval
+    let speedScale: Double
+}
+
+struct BrakeResolution: Equatable {
+    let timingError: TimeInterval?
+    let grade: BrakeGrade
+    let exitedCount: Int
+    let scoreGained: Int
+    /// 정차선 기준 위치를 -1(이른 제동)...0(정위치)...1(늦은 제동)로 정규화한 값.
+    let finalOffset: Double
+}
+
 struct StageDifficulty: Equatable {
     let stage: Int
     let duration: TimeInterval
@@ -23,8 +51,10 @@ struct StageDifficulty: Equatable {
     let transferInterval: Int
     let safetyHandles: Int
     let assisted: Bool
+    let targetExited: Int
+    let stationCount: Int
 
-    var title: String { "\(stage)역" }
+    var title: String { "\(stage)단계" }
 }
 
 enum PassengerKind: Int, CaseIterable, Codable, Equatable, Hashable {
@@ -99,6 +129,13 @@ struct RunSnapshot: Equatable {
     var safetyHandles = 3
     var rescueUsed = false
     var assisted = false
+    var targetExited = 22
+    var stopIndex = 1
+    var stationCount = 5
+    var approachProgress: Double = 0
+    var canBrake = false
+    var doorsOpen = false
+    var lastBrakeGrade: BrakeGrade?
 
     var remaining: TimeInterval { max(0, duration - elapsed) }
 
@@ -141,11 +178,11 @@ struct RunResult: Equatable {
     }
 
     var headline: String {
-        completed ? "\(stage)역 통과!" : "한 칸만 비웠다면 출발!"
+        completed ? "\(stage)단계 운행 성공!" : "\(exited)명 하차 · 다시 정위치로"
     }
 
     var shareText: String {
-        "한 칸만! \(stage)역에서 \(exited)명이 무사히 내렸어요. 점수 \(score)점 · 최고 환승 ×\(max(1, bestChain))"
+        "정위치! 만원열차 \(stage)단계에서 \(exited)명이 안전하게 내렸어요. 점수 \(score)점 · 연속 정위치 ×\(bestChain)"
     }
 }
 
@@ -159,7 +196,7 @@ enum GameEvent {
 }
 
 struct PlayerProfile: Codable, Equatable {
-    var version = 2
+    var version = 3
     var bestScore = 0
     var totalRuns = 0
     var totalExited = 0
@@ -186,21 +223,27 @@ struct PlayerProfile: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let storedVersion = try values.decodeIfPresent(Int.self, forKey: .version) ?? 1
-        guard (1...2).contains(storedVersion) else {
+        guard (1...3).contains(storedVersion) else {
             throw DecodingError.dataCorruptedError(
                 forKey: .version,
                 in: values,
                 debugDescription: "Unsupported player profile version \(storedVersion)"
             )
         }
-        version = 2
+        version = 3
         bestScore = try values.decodeIfPresent(Int.self, forKey: .bestScore) ?? 0
         totalRuns = try values.decodeIfPresent(Int.self, forKey: .totalRuns) ?? 0
         totalExited = try values.decodeIfPresent(Int.self, forKey: .totalExited) ?? 0
-        tutorialSeen = try values.decodeIfPresent(Bool.self, forKey: .tutorialSeen) ?? false
-        highestStage = max(1, try values.decodeIfPresent(Int.self, forKey: .highestStage) ?? 1)
-        consecutiveFailures = max(0, try values.decodeIfPresent(Int.self, forKey: .consecutiveFailures) ?? 0)
-        freeRescueUsed = try values.decodeIfPresent(Bool.self, forKey: .freeRescueUsed) ?? false
+        let storedTutorialSeen = try values.decodeIfPresent(Bool.self, forKey: .tutorialSeen) ?? false
+        tutorialSeen = storedVersion < 3 ? false : storedTutorialSeen
+        let storedHighestStage = max(1, try values.decodeIfPresent(Int.self, forKey: .highestStage) ?? 1)
+        highestStage = storedVersion < 3 ? 1 : storedHighestStage
+        consecutiveFailures = storedVersion < 3
+            ? 0
+            : max(0, try values.decodeIfPresent(Int.self, forKey: .consecutiveFailures) ?? 0)
+        freeRescueUsed = storedVersion < 3
+            ? false
+            : (try values.decodeIfPresent(Bool.self, forKey: .freeRescueUsed) ?? false)
         rewardedContinuesUsedTotal = max(
             0,
             try values.decodeIfPresent(Int.self, forKey: .rewardedContinuesUsedTotal) ?? 0

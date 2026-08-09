@@ -44,7 +44,7 @@ protocol RewardedAdServing {
 
 `PersistenceService.load()`는 유효한 현재/지원 구버전 프로필을 반환하고, 손상·지원하지 않는 미래 버전은 기본 프로필 또는 격리된 복구 경로로 처리해야 한다. `save`는 원자적 의미를 갖고 실패를 관측 가능하게 해야 한다.
 
-현재 UserDefaults key는 `oneMoreCar.playerProfile.v1`, payload schema는 v2다. key의 `v1`은 schema 권위가 아니며 JSON의 `version`이 권위다. decoder는 raw version 1...2만 허용하고 그 밖의 payload는 거부한다. Persistence는 최초 decode 실패 원본을 `oneMoreCar.playerProfile.recovery`에 보존한 뒤 기본 프로필을 반환한다.
+현재 UserDefaults key는 `oneMoreCar.playerProfile.v1`, payload schema는 v3다. key의 `v1`은 schema 권위가 아니며 JSON의 `version`이 권위다. decoder는 raw version 1...3만 허용하고 그 밖의 payload는 거부한다. v1/v2의 점수·누계는 보존하되 폐기된 격자 단계와 구조 상태는 초기화하고 새 제동 튜토리얼을 재노출한다. Persistence는 최초 decode 실패 원본을 `oneMoreCar.playerProfile.recovery`에 보존한 뒤 기본 프로필을 반환한다.
 
 ## 4. 미래 외부 경계
 

@@ -15,7 +15,7 @@ struct ResultView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    Text(result.completed ? "다음 역이 열렸어요" : "새 운행은 목숨 없이 바로 시작할 수 있어요")
+                    Text(result.completed ? "다음 단계가 열렸어요" : "광고 없이 같은 운행을 바로 다시 할 수 있어요")
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(Color.exitMint)
                         .padding(.top, 20)
@@ -59,19 +59,19 @@ struct ResultView: View {
 
                     HStack(spacing: 10) {
                         resultStat(icon: "person.2.fill", title: "하차", value: "\(result.exited)명")
-                        resultStat(icon: "arrow.triangle.branch", title: "최고 환승", value: "×\(max(1, result.bestChain))")
+                        resultStat(icon: "scope", title: "연속 정위치", value: "×\(result.bestChain)")
                         resultStat(icon: "person.badge.plus", title: "탑승", value: "\(result.boarded)명")
                     }
 
                     VStack(spacing: 12) {
-                        Button(result.completed ? "다음 역 바로 출발" : "같은 역 다시 도전") {
+                        Button(result.completed ? "다음 단계 바로 출발" : "같은 운행 다시") {
                             model.startGame()
                         }
                             .buttonStyle(PrimaryButtonStyle())
                             .accessibilityIdentifier("retryButton")
 
-                        ShareLink(item: result.shareText + " 몇 점까지 갈 수 있을까?") {
-                            Label("친구에게 기록 공유하기", systemImage: "person.2.wave.2.fill")
+                        ShareLink(item: result.shareText) {
+                            Label("운행 기록 공유하기", systemImage: "square.and.arrow.up.fill")
                                 .font(.headline.weight(.heavy))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)

@@ -16,6 +16,7 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
 
     private let persistence: PersistenceService
     private let haptics = HapticService()
+    private let audio = GameAudioService()
     private let seed: UInt64
     private let rewardedAdService: any RewardedAdServing
     private var processedImpressionIDs = Set<String>()
@@ -27,6 +28,10 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
         UserDefaults.standard.object(forKey: "settings.haptics") as? Bool ?? true
     }
 
+    var soundEnabled: Bool {
+        UserDefaults.standard.object(forKey: "settings.sound") as? Bool ?? true
+    }
+
     var currentDifficulty: StageDifficulty {
         GameRules.stageDifficulty(
             stage: profile.highestStage,
@@ -35,7 +40,9 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
     }
 
     var rescueOfferIsFree: Bool { !profile.freeRescueUsed }
-    var isRewardedAdAvailable: Bool { rewardedAdService.isReady }
+    var isRewardedAdAvailable: Bool {
+        profile.totalRuns >= 3 && rewardedAdService.isReady
+    }
     var hasPendingRescueReward: Bool {
         pendingRewardRunID != nil && pendingRewardRunID == activeRunID
     }
@@ -110,7 +117,7 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
             return
         }
 
-        guard rewardedAdService.isReady else {
+        guard isRewardedAdAvailable else {
             rescueErrorMessage = "지금은 광고를 불러올 수 없어요. 새 운행은 바로 시작할 수 있어요."
             return
         }
@@ -152,8 +159,16 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
         currentScene?.declineRescue()
     }
 
+    func restartFromRescueOffer() {
+        guard showRescueOffer, !isRescueLoading else { return }
+        showRescueOffer = false
+        currentScene?.declineRescue()
+        startGame()
+    }
+
     func goHome() {
         currentScene?.removeAllActions()
+        currentScene = nil
         activeRunID = nil
         pendingRewardRunID = nil
         showRescueOffer = false
@@ -163,6 +178,7 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
     func setApplicationActive(_ isActive: Bool) {
         appIsActive = isActive
         if !isActive, case .game = route {
+            audio.stop()
             pause()
         }
     }
@@ -176,15 +192,28 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
     }
 
     func gameScene(_ scene: GameScene, didEmit event: GameEvent) {
+        guard scene === currentScene, case .game = route else { return }
         switch event {
         case .snapshot(let value):
+            let previous = snapshot
             snapshot = value
+            if !previous.doorsOpen, value.doorsOpen {
+                audio.play(.doors, enabled: soundEnabled)
+            } else if previous.stopIndex != value.stopIndex, value.stopIndex > 1 {
+                audio.play(.departure, enabled: soundEnabled)
+            }
         case .perfect:
+            if showTutorial { dismissTutorial() }
             haptics.perfect(enabled: hapticsEnabled)
+            audio.play(.perfect, enabled: soundEnabled)
         case .match:
+            if showTutorial { dismissTutorial() }
             haptics.match(enabled: hapticsEnabled)
+            audio.play(.brake, enabled: soundEnabled)
         case .overflow:
+            if showTutorial { dismissTutorial() }
             haptics.overflow(enabled: hapticsEnabled)
+            audio.play(.missed, enabled: soundEnabled)
         case .rescueRequested:
             showRescueOffer = true
         case .finished(let result):
@@ -201,6 +230,7 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
             activeRunID = nil
             pendingRewardRunID = nil
             showRescueOffer = false
+            currentScene = nil
             route = .result(result)
         }
     }
