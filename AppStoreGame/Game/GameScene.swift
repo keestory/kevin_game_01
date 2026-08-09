@@ -617,12 +617,18 @@ final class GameScene: SKScene {
             ) else { continue }
             let doorIndex = (event.id + passengerIndex) % 4
             let door = doorPosition(doorIndex)
+            let doorThreshold = CGPoint(
+                x: door.x,
+                y: door.y - doorSizes[doorIndex].height * 0.43
+            )
             let platformPoint = CGPoint(
                 x: CGFloat(44 + ((event.id * 67 + passengerIndex * 31) % 300)),
                 y: CGFloat(232 + ((event.id + passengerIndex) % 3) * 20)
             )
             let platformInTrain = trainRoot.convert(platformPoint, from: worldRoot)
-            passenger.position = CGPoint(x: door.x, y: door.y - 38)
+            // Domain events are authoritative threshold crossings. Start the
+            // visual at that same threshold so the visible count never leads it.
+            passenger.position = doorThreshold
             passenger.setScale(0.82)
 
             let movement: SKAction
@@ -632,12 +638,10 @@ final class GameScene: SKScene {
                     eased(.scale(to: 1.0, duration: reduceMotion ? 0.10 : 0.58), mode: .easeOut)
                 ])
             } else {
-                passenger.position = platformInTrain
-                passenger.setScale(1)
                 movement = .group([
-                    eased(.move(to: door, duration: reduceMotion ? 0.10 : 0.42), mode: .easeIn),
-                    .fadeOut(withDuration: reduceMotion ? 0.10 : 0.42),
-                    eased(.scale(to: 0.72, duration: reduceMotion ? 0.10 : 0.42), mode: .easeIn)
+                    eased(.move(to: CGPoint(x: door.x, y: door.y + 5), duration: reduceMotion ? 0.10 : 0.34), mode: .easeIn),
+                    .fadeOut(withDuration: reduceMotion ? 0.10 : 0.34),
+                    eased(.scale(to: 0.68, duration: reduceMotion ? 0.10 : 0.34), mode: .easeIn)
                 ])
             }
             passenger.run(.sequence([
