@@ -1,0 +1,152 @@
+{
+  "agent_run_format_version": "0.1",
+  "run_id": "hell-train-capacity-timing-run-241d9b2",
+  "agent": {
+    "name": "Codex",
+    "version": "desktop"
+  },
+  "product_spec": {
+    "path": "docs/product-specs/real-train-braking.product-spec.md",
+    "spec_revision": 3,
+    "content_hash": "sha256:ad2aa61d5cc886eb0d2f3a50188fcac4c892648eb9b05e701afba082a0893a9f"
+  },
+  "started_at": "2026-08-09T13:38:00Z",
+  "completed_at": "2026-08-09T14:35:00Z",
+  "status": "blocked",
+  "checked_items": [
+    {
+      "item_id": "AC-1",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "other",
+          "url": "../screenshots/game-hell-train-r3.png"
+        },
+        {
+          "type": "code",
+          "url": "../../AppStoreGame/Game/GameScene.swift"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-2",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../AppStoreGame/Game/GameRules.swift"
+        },
+        {
+          "type": "code",
+          "url": "../../AppStoreGameTests/GameRulesTests.swift"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-3",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../AppStoreGame/Game/GameScene.swift"
+        },
+        {
+          "type": "github_pr",
+          "url": "https://github.com/keestory/kevin_game_01/commit/241d9b2"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-4",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../AppStoreGameTests/GameRulesTests.swift"
+        },
+        {
+          "type": "code",
+          "url": "../../AppStoreGameTests/GameRulesTests.swift"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-5",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../AppStoreGameTests/GameRulesTests.swift"
+        },
+        {
+          "type": "code",
+          "url": "../../AppStoreGame/App/AppModel.swift"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-6",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-7",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-8",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-9",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-10",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-11",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-12",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-1",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-2",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-3",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-4",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-5",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-6",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-7",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-8",
+      "status": "not_checked"
+    }
+  ],
+  "drift": {
+    "detected": false
+  },
+  "completion_claim": "ProductSpec revision 3 has a playable five-station capacity-timing implementation at commits 5fac0c4 and 241d9b2. Local SwiftPM tests passed 32 of 32; Xcode unit and Scene integration tests passed 41 of 41; the first-run UI smoke test passed 1 of 1; current and archived Product Specs, the Decision Trace, and Agent Runs validate. The Product Harness remains blocked because independent user comprehension and replay evidence, minimum-device performance and accessibility evidence, independent asset similarity review, TestFlight soak, App Store readiness, retention, acquisition, and unit economics are not checked. No Korean App Store rank claim is made."
+}
