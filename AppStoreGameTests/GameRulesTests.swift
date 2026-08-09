@@ -8,6 +8,436 @@ import SpriteKit
 
 final class GameRulesTests: XCTestCase {
     @MainActor
+    func testCountSnapshotDefaultsExposeAuthoritativeDoorState() {
+        let snapshot = RunSnapshot()
+
+        XCTAssertEqual(snapshot.onboardCount, 0)
+        XCTAssertEqual(snapshot.targetOnboardCount, 0)
+        XCTAssertEqual(snapshot.countRevision, 0)
+        XCTAssertFalse(snapshot.canCloseDoors)
+        XCTAssertNil(snapshot.lastCloseDelta)
+        XCTAssertEqual(snapshot.flowProgress, 0)
+        XCTAssertEqual(snapshot.flowPhase, .automaticExit)
+    }
+
+    @MainActor
+    func testCountRunPlanIsSeededAndChainsFiveStations() {
+        let difficulty = GameRules.stageDifficulty(stage: 1)
+        let first = GameRules.countRunPlan(seed: 20260809, difficulty: difficulty)
+        let replay = GameRules.countRunPlan(seed: 20260809, difficulty: difficulty)
+        let different = GameRules.countRunPlan(seed: 20260810, difficulty: difficulty)
+
+        XCTAssertEqual(first, replay)
+        XCTAssertNotEqual(first, different)
+        XCTAssertEqual(first.stations.count, 5)
+        XCTAssertEqual(first.stations.map(\.index), [1, 2, 3, 4, 5])
+        for index in 1..<first.stations.count {
+            XCTAssertEqual(
+                first.stations[index].initialOnboard,
+                first.stations[index - 1].targetOnboard
+            )
+        }
+    }
+
+    @MainActor
+    func testCountPlansAreSolvableAndWithinCapacityAcrossTenThousandSeeds() {
+        let difficulty = GameRules.stageDifficulty(stage: 1)
+
+        for seed in UInt64(0)..<10_000 {
+            let plan = GameRules.countRunPlan(seed: seed, difficulty: difficulty)
+            XCTAssertEqual(plan.stations.count, 5, "seed \(seed)")
+
+            for station in plan.stations {
+                XCTAssertFalse(station.exitEvents.isEmpty, "seed \(seed), station \(station.index)")
+                XCTAssertFalse(station.boardingEvents.isEmpty, "seed \(seed), station \(station.index)")
+                XCTAssertTrue(
+                    station.boardingEvents.allSatisfy { $0.passengerCount == 1 },
+                    "seed \(seed), station \(station.index)"
+                )
+                XCTAssertTrue(
+                    zip(station.events, station.events.dropFirst()).allSatisfy {
+                        $0.offsetMilliseconds < $1.offsetMilliseconds
+                    },
+                    "seed \(seed), station \(station.index)"
+                )
+                XCTAssertLessThanOrEqual(
+                    station.deadlineMilliseconds,
+                    12_000,
+                    "seed \(seed), station \(station.index)"
+                )
+
+                var onboard = station.initialOnboard
+                var boardingBegan = false
+                var targetReachedAt: Int?
+                var targetPassedAt: Int?
+                for event in station.events {
+                    switch event.direction {
+                    case .exit:
+                        XCTAssertFalse(boardingBegan, "exit after boarding: seed \(seed)")
+                        onboard -= event.passengerCount
+                    case .board:
+                        boardingBegan = true
+                        let previous = onboard
+                        onboard += event.passengerCount
+                        XCTAssertEqual(onboard, previous + 1, "seed \(seed)")
+                        if onboard == station.targetOnboard, targetReachedAt == nil {
+                            targetReachedAt = event.offsetMilliseconds
+                        } else if let targetReachedAt,
+                                  onboard == station.targetOnboard + 1,
+                                  targetPassedAt == nil {
+                            targetPassedAt = event.offsetMilliseconds
+                            XCTAssertGreaterThanOrEqual(
+                                targetPassedAt! - targetReachedAt,
+                                station.minimumTargetHoldMilliseconds,
+                                "seed \(seed), station \(station.index)"
+                            )
+                        }
+                    }
+                    XCTAssertTrue((0...station.capacity).contains(onboard), "seed \(seed)")
+                }
+
+                let exactTime = try! XCTUnwrap(targetReachedAt, "seed \(seed)")
+                XCTAssertNotNil(targetPassedAt, "seed \(seed), station \(station.index)")
+                let exactState = GameRules.advanceFlow(
+                    state: GameRules.initialCountFlowState(for: station),
+                    throughMilliseconds: exactTime,
+                    plan: station
+                ).state
+                XCTAssertEqual(
+                    GameRules.resolveDoorClose(
+                        state: exactState,
+                        plan: station,
+                        observedCountRevision: exactState.countRevision
+                    ).result,
+                    .exact,
+                    "seed \(seed), station \(station.index)"
+                )
+            }
+        }
+    }
+
+    @MainActor
+    func testAutomaticExitPrecedesMonotonicInteractiveBoarding() {
+        let station = GameRules.countRunPlan(
+            seed: 7,
+            difficulty: GameRules.stageDifficulty(stage: 1)
+        ).stations[0]
+        let lastExitTime = try! XCTUnwrap(station.exitEvents.last?.offsetMilliseconds)
+
+        let beforeLastExit = GameRules.advanceFlow(
+            state: GameRules.initialCountFlowState(for: station),
+            throughMilliseconds: lastExitTime - 1,
+            plan: station
+        )
+        let afterLastExit = GameRules.advanceFlow(
+            state: beforeLastExit.state,
+            throughMilliseconds: lastExitTime,
+            plan: station
+        )
+
+        XCTAssertEqual(beforeLastExit.state.phase, .automaticExit)
+        XCTAssertEqual(afterLastExit.state.phase, .boarding)
+        XCTAssertEqual(afterLastExit.appliedEvents, [station.exitEvents.last!])
+
+        var state = afterLastExit.state
+        var previousOnboard = state.onboardCount
+        for event in station.boardingEvents {
+            let advance = GameRules.advanceFlow(
+                state: state,
+                throughMilliseconds: event.offsetMilliseconds,
+                plan: station
+            )
+            state = advance.state
+            XCTAssertEqual(advance.appliedEvents, [event])
+            XCTAssertEqual(state.onboardCount, previousOnboard + 1)
+            previousOnboard = state.onboardCount
+        }
+    }
+
+    @MainActor
+    func testFlowAdvanceIsIndependentOfFrameCadenceAndLargeDelta() {
+        let station = GameRules.countRunPlan(
+            seed: 42,
+            difficulty: GameRules.stageDifficulty(stage: 1)
+        ).stations[3]
+        let at30FPS = simulateFlow(station: station, frameMilliseconds: 33)
+        let at60FPS = simulateFlow(station: station, frameMilliseconds: 16)
+        let at120FPS = simulateFlow(station: station, frameMilliseconds: 8)
+        let oneLargeDelta = GameRules.advanceFlow(
+            state: GameRules.initialCountFlowState(for: station),
+            throughMilliseconds: station.deadlineMilliseconds,
+            plan: station
+        )
+
+        XCTAssertEqual(at30FPS.state, at60FPS.state)
+        XCTAssertEqual(at60FPS.state, at120FPS.state)
+        XCTAssertEqual(at120FPS.state, oneLargeDelta.state)
+        XCTAssertEqual(at30FPS.eventIDs, station.events.map(\.id))
+        XCTAssertEqual(at60FPS.eventIDs, at30FPS.eventIDs)
+        XCTAssertEqual(at120FPS.eventIDs, at30FPS.eventIDs)
+        XCTAssertEqual(oneLargeDelta.appliedEvents.map(\.id), at30FPS.eventIDs)
+    }
+
+    @MainActor
+    func testFlowEventAppliesAtInclusiveThresholdExactlyOnce() {
+        let station = GameRules.countRunPlan(
+            seed: 99,
+            difficulty: GameRules.stageDifficulty(stage: 1)
+        ).stations[0]
+        let firstEvent = station.events[0]
+        let initial = GameRules.initialCountFlowState(for: station)
+        let before = GameRules.advanceFlow(
+            state: initial,
+            throughMilliseconds: firstEvent.offsetMilliseconds - 1,
+            plan: station
+        )
+        let threshold = GameRules.advanceFlow(
+            state: before.state,
+            throughMilliseconds: firstEvent.offsetMilliseconds,
+            plan: station
+        )
+        let repeated = GameRules.advanceFlow(
+            state: threshold.state,
+            throughMilliseconds: firstEvent.offsetMilliseconds,
+            plan: station
+        )
+
+        XCTAssertTrue(before.appliedEvents.isEmpty)
+        XCTAssertEqual(before.state.countRevision, 0)
+        XCTAssertEqual(threshold.appliedEvents, [firstEvent])
+        XCTAssertEqual(threshold.state.countRevision, 1)
+        XCTAssertTrue(repeated.appliedEvents.isEmpty)
+        XCTAssertEqual(repeated.state, threshold.state)
+    }
+
+    @MainActor
+    func testDoorCloseResolvesExactUnderOverAndRejectsStaleRevision() {
+        let station = GameRules.countRunPlan(
+            seed: 20260809,
+            difficulty: GameRules.stageDifficulty(stage: 1)
+        ).stations[0]
+        let exitedCount = station.exitEvents.reduce(0) { $0 + $1.passengerCount }
+        let boardingCountToTarget = station.targetOnboard
+            - (station.initialOnboard - exitedCount)
+        let targetEventIndex = station.exitEvents.count + boardingCountToTarget - 1
+        let underEvent = station.events[targetEventIndex - 1]
+        let targetEvent = station.events[targetEventIndex]
+        let overEvent = station.events[targetEventIndex + 1]
+        let initial = GameRules.initialCountFlowState(for: station)
+        let underState = GameRules.advanceFlow(
+            state: initial,
+            throughMilliseconds: underEvent.offsetMilliseconds,
+            plan: station
+        ).state
+        let exactState = GameRules.advanceFlow(
+            state: underState,
+            throughMilliseconds: targetEvent.offsetMilliseconds,
+            plan: station
+        ).state
+        let overState = GameRules.advanceFlow(
+            state: exactState,
+            throughMilliseconds: overEvent.offsetMilliseconds,
+            plan: station
+        ).state
+
+        let under = GameRules.resolveDoorClose(
+            state: underState,
+            plan: station,
+            observedCountRevision: underState.countRevision
+        )
+        let exact = GameRules.resolveDoorClose(
+            state: exactState,
+            plan: station,
+            observedCountRevision: exactState.countRevision
+        )
+        let over = GameRules.resolveDoorClose(
+            state: overState,
+            plan: station,
+            observedCountRevision: overState.countRevision
+        )
+        let stale = GameRules.resolveDoorClose(
+            state: exactState,
+            plan: station,
+            observedCountRevision: exactState.countRevision - 1
+        )
+
+        XCTAssertEqual(under.result, .under(by: 1))
+        XCTAssertEqual(under.signedDelta, -1)
+        XCTAssertEqual(exact.result, .exact)
+        XCTAssertEqual(exact.signedDelta, 0)
+        XCTAssertEqual(over.result, .over(by: 1))
+        XCTAssertEqual(over.signedDelta, 1)
+        XCTAssertEqual(stale.result, .stale)
+        XCTAssertFalse(stale.shouldCloseDoors)
+        XCTAssertNil(stale.signedDelta)
+    }
+
+    @MainActor
+    func testDoorCloseIsUnavailableDuringAutomaticExitAndAutoResolvesAtDeadline() {
+        let station = GameRules.countRunPlan(
+            seed: 1,
+            difficulty: GameRules.stageDifficulty(stage: 1)
+        ).stations[0]
+        let initial = GameRules.initialCountFlowState(for: station)
+        let timedOut = GameRules.advanceFlow(
+            state: initial,
+            throughMilliseconds: station.deadlineMilliseconds,
+            plan: station
+        ).state
+
+        XCTAssertEqual(
+            GameRules.resolveDoorClose(
+                state: initial,
+                plan: station,
+                observedCountRevision: initial.countRevision
+            ).result,
+            .stale
+        )
+        XCTAssertEqual(timedOut.phase, .timedOut)
+        let timedOutResolution = GameRules.resolveDoorClose(
+            state: timedOut,
+            plan: station,
+            observedCountRevision: timedOut.countRevision
+        )
+        XCTAssertTrue(timedOutResolution.shouldCloseDoors)
+        XCTAssertNotEqual(timedOutResolution.result, .stale)
+    }
+
+    @MainActor
+    func testRunSnapshotRoutingDefaultsMatchFourDoorContract() {
+        let snapshot = RunSnapshot()
+
+        XCTAssertEqual(snapshot.destinationProgress.count, 4)
+        XCTAssertTrue(PassengerKind.destinations.allSatisfy {
+            snapshot.destinationProgress[$0] == 0
+        })
+        XCTAssertEqual(snapshot.doorDestinations, PassengerKind.destinations)
+        XCTAssertEqual(snapshot.currentQueueSize, 0)
+        XCTAssertEqual(snapshot.selectedDoor, 0)
+        XCTAssertEqual(snapshot.routingQueueIndex, 0)
+        XCTAssertEqual(snapshot.routingQueueCount, 10)
+        XCTAssertNil(snapshot.lastRoutingCorrect)
+        XCTAssertFalse(snapshot.clockStarted)
+    }
+
+    @MainActor
+    func testRoutingPlanHasFourDoorsTenQueuesAcrossFiveStations() {
+        let plan = GameRules.routingRunPlan(seed: 20260809)
+
+        XCTAssertEqual(plan.stations.count, 5)
+        XCTAssertEqual(plan.queues.count, 10)
+        XCTAssertEqual(Set(plan.queues.map(\.id)).count, 10)
+        XCTAssertEqual(plan.stations.map(\.index), [1, 2, 3, 4, 5])
+        for station in plan.stations {
+            XCTAssertEqual(station.queues.count, 2)
+            XCTAssertEqual(station.queues.map(\.positionInStation), [0, 1])
+            XCTAssertEqual(Set(station.queues.map(\.destination)).count, 2)
+            XCTAssertEqual(station.doorOrder.count, 4)
+            XCTAssertEqual(Set(station.doorOrder), Set(PassengerKind.destinations))
+            XCTAssertTrue(station.queues.allSatisfy { $0.stationIndex == station.index })
+        }
+    }
+
+    @MainActor
+    func testRoutingPlanCompletesExactlyThreePassengersPerDestination() {
+        let plan = GameRules.routingRunPlan(seed: 7)
+
+        XCTAssertEqual(plan.queues.reduce(0) { $0 + $1.passengerCount }, 12)
+        for destination in PassengerKind.destinations {
+            XCTAssertEqual(plan.passengerTotal(for: destination), 3)
+        }
+    }
+
+    @MainActor
+    func testRoutingDoorOrdersAndQueuesAreDeterministicForSeed() {
+        let first = GameRules.routingRunPlan(seed: 42)
+        let second = GameRules.routingRunPlan(seed: 42)
+        let different = GameRules.routingRunPlan(seed: 43)
+
+        XCTAssertEqual(first, second)
+        XCTAssertNotEqual(first, different)
+        XCTAssertGreaterThan(Set(first.stations.map(\.doorOrder)).count, 1)
+    }
+
+    @MainActor
+    func testDoorSelectionMovesOneStepAndClampsAtBounds() {
+        XCTAssertEqual(GameRules.moveDoorSelection(current: 0, move: .left), 0)
+        XCTAssertEqual(GameRules.moveDoorSelection(current: 0, move: .right), 1)
+        XCTAssertEqual(GameRules.moveDoorSelection(current: 2, move: .left), 1)
+        XCTAssertEqual(GameRules.moveDoorSelection(current: 2, move: .right), 3)
+        XCTAssertEqual(GameRules.moveDoorSelection(current: 3, move: .right), 3)
+        XCTAssertEqual(GameRules.moveDoorSelection(current: -10, move: .right), 1)
+        XCTAssertEqual(GameRules.moveDoorSelection(current: 99, move: .left), 2)
+        XCTAssertEqual(GameRules.moveDoorSelection(current: 0, move: .right, doorCount: 0), 0)
+    }
+
+    @MainActor
+    func testRoutingResolutionAdvancesOnlyForCorrectDoor() {
+        let plan = GameRules.routingRunPlan(seed: 20260809)
+        let station = plan.stations[0]
+        let queue = station.queues[0]
+        let correctDoor = try! XCTUnwrap(station.doorOrder.firstIndex(of: queue.destination))
+        let wrongDoor = station.doorOrder.indices.first { $0 != correctDoor }!
+
+        let correct = GameRules.resolveRouting(
+            queue: queue,
+            selectedDoorIndex: correctDoor,
+            doorOrder: station.doorOrder
+        )
+        let wrong = GameRules.resolveRouting(
+            queue: queue,
+            selectedDoorIndex: wrongDoor,
+            doorOrder: station.doorOrder
+        )
+        let invalid = GameRules.resolveRouting(
+            queue: queue,
+            selectedDoorIndex: 99,
+            doorOrder: station.doorOrder
+        )
+
+        XCTAssertEqual(correct.outcome, .correct)
+        XCTAssertEqual(correct.completedPassengerCount, queue.passengerCount)
+        XCTAssertTrue(correct.shouldAdvanceQueue)
+        XCTAssertFalse(correct.queueRemainsAvailable)
+
+        XCTAssertEqual(wrong.outcome, .wrong)
+        XCTAssertEqual(wrong.completedPassengerCount, 0)
+        XCTAssertFalse(wrong.shouldAdvanceQueue)
+        XCTAssertTrue(wrong.queueRemainsAvailable)
+        XCTAssertEqual(wrong.expectedDestination, queue.destination)
+
+        XCTAssertEqual(invalid.outcome, .wrong)
+        XCTAssertNil(invalid.selectedDestination)
+        XCTAssertTrue(invalid.queueRemainsAvailable)
+    }
+
+    @MainActor
+    func testRoutingPlansRemainSolvableAcrossSeeds() {
+        for seed in UInt64(0)..<512 {
+            let plan = GameRules.routingRunPlan(seed: seed)
+            var completedByDestination: [PassengerKind: Int] = [:]
+
+            for station in plan.stations {
+                for queue in station.queues {
+                    let door = try! XCTUnwrap(station.doorOrder.firstIndex(of: queue.destination))
+                    let resolution = GameRules.resolveRouting(
+                        queue: queue,
+                        selectedDoorIndex: door,
+                        doorOrder: station.doorOrder
+                    )
+                    XCTAssertEqual(resolution.outcome, .correct, "seed \(seed), queue \(queue.id)")
+                    completedByDestination[queue.destination, default: 0] += resolution.completedPassengerCount
+                }
+            }
+
+            XCTAssertEqual(plan.queues.count, 10, "seed \(seed)")
+            for destination in PassengerKind.destinations {
+                XCTAssertEqual(completedByDestination[destination], 3, "seed \(seed), \(destination)")
+            }
+        }
+    }
+
+    @MainActor
     func testThreeConnectedPassengersExit() {
         var board = TrainBoard()
 
@@ -285,6 +715,27 @@ final class GameRulesTests: XCTestCase {
 
         XCTAssertEqual(result.headline, "7단계 운행 성공!")
     }
+
+    @MainActor
+    private func simulateFlow(
+        station: StationCountPlan,
+        frameMilliseconds: Int
+    ) -> (state: CountFlowState, eventIDs: [Int]) {
+        var state = GameRules.initialCountFlowState(for: station)
+        var eventIDs: [Int] = []
+        var time = 0
+        while time < station.deadlineMilliseconds {
+            time = min(station.deadlineMilliseconds, time + frameMilliseconds)
+            let advance = GameRules.advanceFlow(
+                state: state,
+                throughMilliseconds: time,
+                plan: station
+            )
+            state = advance.state
+            eventIDs.append(contentsOf: advance.appliedEvents.map(\.id))
+        }
+        return (state, eventIDs)
+    }
 }
 
 #if !SWIFT_PACKAGE
@@ -325,7 +776,7 @@ private final class ControlledRewardedAdService: RewardedAdServing {
 
 @MainActor
 final class GameSceneIntegrationTests: XCTestCase {
-    func testFivePerfectStopsFinishAtSixtySecondsWithoutRescue() {
+    func testFiveExactCountClosesCompleteRun() {
         let difficulty = GameRules.stageDifficulty(stage: 1)
         let scene = GameScene(
             size: CGSize(width: 390, height: 844),
@@ -336,22 +787,26 @@ final class GameSceneIntegrationTests: XCTestCase {
         scene.gameDelegate = recorder
         scene.didMove(to: SKView(frame: CGRect(x: 0, y: 0, width: 390, height: 844)))
 
-        var time: TimeInterval = 0
-        for stop in 1...5 {
+        var time: TimeInterval = 1
+        scene.update(time)
+        for stationNumber in 1...5 {
             var frames = 0
-            while recorder.latestSnapshot.stopIndex == stop,
-                  recorder.latestSnapshot.approachProgress < 0.75,
-                  frames < 600 {
+            while (!recorder.latestSnapshot.canCloseDoors
+                    || recorder.latestSnapshot.onboardCount != recorder.latestSnapshot.targetOnboardCount),
+                  recorder.result == nil,
+                  frames < 1_200 {
                 time += 1.0 / 60.0
                 scene.update(time)
                 frames += 1
             }
-            scene.applyBrake()
+            XCTAssertLessThan(frames, 1_200, "station \(stationNumber) never reached target")
+            let observedRevision = recorder.latestSnapshot.countRevision
+            scene.closeDoors(observedRevision: observedRevision)
 
             frames = 0
-            while recorder.latestSnapshot.stopIndex == stop,
+            while recorder.latestSnapshot.stopIndex == stationNumber,
                   recorder.result == nil,
-                  frames < 600 {
+                  frames < 240 {
                 time += 1.0 / 60.0
                 scene.update(time)
                 frames += 1
@@ -360,10 +815,43 @@ final class GameSceneIntegrationTests: XCTestCase {
 
         let result = try! XCTUnwrap(recorder.result)
         XCTAssertTrue(result.completed)
-        XCTAssertEqual(result.exited, 32)
+        XCTAssertGreaterThan(result.exited, 0)
+        XCTAssertGreaterThan(result.boarded, 0)
         XCTAssertFalse(recorder.rescueRequested)
-        XCTAssertEqual(recorder.latestSnapshot.elapsed, 60, accuracy: 0.001)
+        XCTAssertEqual(recorder.latestSnapshot.lastCloseDelta, 0)
+        XCTAssertGreaterThan(recorder.latestSnapshot.elapsed, 0)
+        XCTAssertLessThan(recorder.latestSnapshot.elapsed, 60)
         XCTAssertEqual(recorder.latestSnapshot.phase, .finished)
+    }
+
+    func testStaleCountRevisionDoesNotCloseDoorsOrResolveStation() {
+        let scene = GameScene(
+            size: CGSize(width: 390, height: 844),
+            seed: 42,
+            difficulty: GameRules.stageDifficulty(stage: 1)
+        )
+        let recorder = RecordingTrainSceneDelegate()
+        scene.gameDelegate = recorder
+        scene.didMove(to: SKView(frame: CGRect(x: 0, y: 0, width: 390, height: 844)))
+
+        var time: TimeInterval = 1
+        scene.update(time)
+        var frames = 0
+        while (!recorder.latestSnapshot.canCloseDoors
+                || recorder.latestSnapshot.onboardCount != recorder.latestSnapshot.targetOnboardCount),
+              frames < 1_200 {
+            time += 1.0 / 60.0
+            scene.update(time)
+            frames += 1
+        }
+        let currentRevision = recorder.latestSnapshot.countRevision
+        scene.closeDoors(observedRevision: currentRevision - 1)
+
+        XCTAssertEqual(recorder.latestSnapshot.stopIndex, 1)
+        XCTAssertTrue(recorder.latestSnapshot.doorsOpen)
+        XCTAssertTrue(recorder.latestSnapshot.canCloseDoors)
+        XCTAssertNil(recorder.latestSnapshot.lastCloseDelta)
+        XCTAssertNil(recorder.result)
     }
 }
 

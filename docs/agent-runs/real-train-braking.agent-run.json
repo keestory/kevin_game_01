@@ -6,7 +6,7 @@
     "version": "desktop"
   },
   "product_spec": {
-    "path": "docs/product-specs/real-train-braking.product-spec.md",
+    "path": "docs/product-specs/archive/real-train-braking.rev1.product-spec.md",
     "spec_revision": 1,
     "content_hash": "sha256:600ae63f40ef85268388968c2213ea977214a29cf08735ceb1c6a06567e06ab9"
   },

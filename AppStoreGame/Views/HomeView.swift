@@ -19,7 +19,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 22) {
                     HStack {
-                        Label("오늘의 정위치 운행", systemImage: "tram.fill")
+                        Label("오늘의 혼잡도 운행", systemImage: "tram.fill")
                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                             .foregroundStyle(Color.exitMint)
                         Spacer()
@@ -37,13 +37,13 @@ struct HomeView: View {
                     }
 
                     VStack(spacing: 2) {
-                        Text("정위치!")
-                            .font(.system(size: 52, weight: .black, design: .rounded))
+                        Text("문 닫습니다!")
+                            .font(.system(size: 46, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
-                        Text("만원열차")
+                        Text("지옥철")
                             .font(.system(size: 31, weight: .black, design: .rounded))
                             .foregroundStyle(Color.safetyYellow)
-                        Text("정차선에 맞춰 승객을 내려요")
+                        Text("현재 인원이 목표와 같을 때 문을 닫아요")
                             .font(.system(.subheadline, design: .rounded, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.62))
                             .padding(.top, 7)
@@ -56,14 +56,14 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("\(model.profile.highestStage)단계 운행")
+                                Text("\(model.profile.highestStage)단계 · 5개 역")
                                     .font(.system(.title3, design: .rounded, weight: .heavy))
-                                Text(model.currentDifficulty.assisted ? "편안한 제동 구간이 적용됐어요" : "5개 역에서 목표 인원을 내려주세요")
+                                Text("우르르 승하차하는 인원을 딱 맞춰주세요")
                                     .font(.footnote.weight(.medium))
-                                    .foregroundStyle(model.currentDifficulty.assisted ? Color.exitMint : .white.opacity(0.58))
+                                    .foregroundStyle(.white.opacity(0.58))
                             }
                             Spacer()
-                            Text("목표 \(model.currentDifficulty.targetExited)명")
+                            Text("정확 3/5")
                                 .font(.system(.caption, design: .monospaced, weight: .bold))
                                 .foregroundStyle(Color.safetyYellow)
                                 .padding(.horizontal, 10)
@@ -80,7 +80,7 @@ struct HomeView: View {
                             )
                         }
 
-                        Button("60초 운행 시작") {
+                        Button("60초 지옥철 출발") {
                             model.startGame()
                         }
                         .buttonStyle(PrimaryButtonStyle())
@@ -89,9 +89,9 @@ struct HomeView: View {
                     .glassCard()
 
                     HStack(spacing: 10) {
-                        Label("원탭 제동", systemImage: "hand.tap.fill")
+                        Label("인원 타이밍", systemImage: "number.circle.fill")
                         Text("•")
-                        Label("실제 열차", systemImage: "tram.fill")
+                        Label("우르르 승하차", systemImage: "person.3.fill")
                         Text("•")
                         Label("실제 승하차", systemImage: "door.left.hand.open")
                     }
@@ -100,7 +100,7 @@ struct HomeView: View {
 
                     if model.profile.bestScore > 0 {
                         ShareLink(
-                            item: "한 칸만! 내 최고 점수는 \(model.profile.bestScore)점. 몇 점까지 갈 수 있을까?"
+                            item: "문 닫습니다! 지옥철 내 최고 점수는 \(model.profile.bestScore)점. 목표 인원에 딱 맞출 수 있을까?"
                         ) {
                             Label("친구에게 기록 공유하기", systemImage: "person.2.wave.2.fill")
                                 .font(.system(.subheadline, design: .rounded, weight: .bold))
@@ -137,71 +137,59 @@ struct HomeView: View {
 private struct TrainPreview: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 28)
+            RoundedRectangle(cornerRadius: 30)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: 0xE9EEF1), Color(hex: 0x9CA9B4)],
+                        colors: [Color(hex: 0x173F5C), Color(hex: 0x081833)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Color.safetyYellow)
-                        .frame(height: 9)
-                        .padding(.horizontal, 14)
-                        .padding(.top, 17)
+                .overlay(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [Color(hex: 0x33445B), Color(hex: 0x182437)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 60)
                 }
-                .overlay {
-                    HStack(spacing: 12) {
-                        ForEach(0..<3, id: \.self) { index in
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 9)
-                                    .fill(Color(hex: 0x18324A))
-                                    .frame(width: 72, height: 72)
-                                HStack(spacing: 7) {
-                                    Image(systemName: "person.fill")
-                                        .foregroundStyle(Color(hex: PassengerKind.destinations[index].tintHex))
-                                    Image(systemName: "person.fill")
-                                        .foregroundStyle(Color(hex: PassengerKind.destinations[index + 1].tintHex))
-                                }
-                                RoundedRectangle(cornerRadius: 5)
-                                    .stroke(Color.white.opacity(0.66), lineWidth: 2)
-                                    .frame(width: 32, height: 94)
-                            }
-                        }
+
+            VStack(spacing: -10) {
+                Image("DioramaTrain")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 350, height: 148)
+                    .shadow(color: .black.opacity(0.46), radius: 12, y: 9)
+
+                HStack(spacing: -3) {
+                    ForEach(0..<10, id: \.self) { index in
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 22 + CGFloat(index % 3) * 3, weight: .black))
+                            .foregroundStyle(index.isMultiple(of: 3) ? Color.safetyYellow : Color.exitMint)
+                            .shadow(color: .black.opacity(0.35), radius: 3, y: 2)
                     }
-                    .padding(.top, 18)
-                }
-                .frame(height: 146)
-
-            HStack(spacing: 190) {
-                wheel
-                wheel
-            }
-            .offset(y: 72)
-
-            HStack(spacing: 4) {
-                ForEach(0..<8, id: \.self) { _ in
-                    Capsule()
-                        .fill(Color.white.opacity(0.30))
-                        .frame(width: 20, height: 3)
                 }
             }
-            .offset(y: -64)
+
+            HStack(spacing: 8) {
+                Text("현재 14")
+                    .foregroundStyle(Color.exitMint)
+                Image(systemName: "equal")
+                    .foregroundStyle(.white.opacity(0.60))
+                Text("목표 14")
+                    .foregroundStyle(Color.safetyYellow)
+            }
+            .font(.system(size: 16, weight: .black, design: .rounded))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.trainNavy.opacity(0.88), in: Capsule())
+            .offset(y: -70)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("문과 창문과 바퀴가 보이는 실제 지하철 한 량")
-        .padding(.horizontal, 8)
-        .padding(.bottom, 15)
-    }
-
-    private var wheel: some View {
-        Circle()
-            .fill(Color(hex: 0x1D2430))
-            .frame(width: 39, height: 39)
-            .overlay(Circle().stroke(Color(hex: 0x77889A), lineWidth: 5))
-            .overlay(Circle().fill(Color(hex: 0xC9D0D6)).frame(width: 11, height: 11))
+        .accessibilityLabel("사선으로 보이는 도시철도 열차와 승하차 군중, 현재와 목표 14명")
+        .frame(height: 206)
+        .clipShape(RoundedRectangle(cornerRadius: 30))
+        .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.exitMint.opacity(0.22)))
     }
 }
 

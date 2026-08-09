@@ -97,6 +97,145 @@ enum PassengerKind: Int, CaseIterable, Codable, Equatable, Hashable {
     }
 }
 
+/// ProductSpec revision 2에서 한 번의 문 열기 입력으로 처리하는 승객 대기열이다.
+/// 오답에서는 같은 큐를 다시 시도할 수 있도록 값 자체는 변경하지 않는다.
+struct RoutingQueue: Equatable, Hashable {
+    let id: Int
+    let stationIndex: Int
+    let positionInStation: Int
+    let destination: PassengerKind
+    let passengerCount: Int
+}
+
+/// 한 역에서 사용할 네 문의 목적지 순서와 두 개의 복구 가능한 큐다.
+struct RoutingStationPlan: Equatable {
+    let index: Int
+    let doorOrder: [PassengerKind]
+    let queues: [RoutingQueue]
+}
+
+/// 하나의 seed에서 결정되는 5역·10큐 목적지 라우팅 계획이다.
+struct RoutingRunPlan: Equatable {
+    let seed: UInt64
+    let stations: [RoutingStationPlan]
+
+    var queues: [RoutingQueue] {
+        stations.flatMap(\.queues)
+    }
+
+    func passengerTotal(for destination: PassengerKind) -> Int {
+        queues
+            .filter { $0.destination == destination }
+            .reduce(0) { $0 + $1.passengerCount }
+    }
+}
+
+enum DoorSelectionMove: Equatable {
+    case left
+    case right
+}
+
+enum RoutingOutcome: Equatable {
+    case correct
+    case wrong
+}
+
+/// 문을 열었을 때의 순수 판정값이다. 오답은 승객을 완료시키지 않고 큐를 보존한다.
+struct RoutingResolution: Equatable {
+    let outcome: RoutingOutcome
+    let queueID: Int
+    let selectedDoorIndex: Int
+    let selectedDestination: PassengerKind?
+    let expectedDestination: PassengerKind
+    let completedPassengerCount: Int
+
+    var shouldAdvanceQueue: Bool { outcome == .correct }
+    var queueRemainsAvailable: Bool { !shouldAdvanceQueue }
+}
+
+/// 인원 맞추기 루프의 논리 단계다. 자동 하차가 끝난 뒤에만 문 닫기 입력을 받는다.
+enum PassengerFlowPhase: Equatable {
+    case automaticExit
+    case boarding
+    case doorsClosed
+    case timedOut
+}
+
+enum PassengerFlowDirection: Equatable {
+    case exit
+    case board
+}
+
+/// 한 명 이상의 승객이 문턱을 지나는 논리 이벤트다.
+/// 인원 수는 이 이벤트를 reducer가 적용할 때만 바뀌며 SpriteKit action은 값을 바꾸지 않는다.
+struct PassengerFlowEvent: Equatable {
+    let id: Int
+    let offsetMilliseconds: Int
+    let direction: PassengerFlowDirection
+    let passengerCount: Int
+    let visualSeed: UInt64
+}
+
+struct StationCountPlan: Equatable {
+    let index: Int
+    let initialOnboard: Int
+    let targetOnboard: Int
+    let capacity: Int
+    let deadlineMilliseconds: Int
+    let minimumTargetHoldMilliseconds: Int
+    let events: [PassengerFlowEvent]
+
+    var exitEvents: [PassengerFlowEvent] {
+        events.filter { $0.direction == .exit }
+    }
+
+    var boardingEvents: [PassengerFlowEvent] {
+        events.filter { $0.direction == .board }
+    }
+}
+
+struct CountRunPlan: Equatable {
+    let seed: UInt64
+    let stations: [StationCountPlan]
+}
+
+/// 프레임 시간과 무관하게 재생할 수 있는 한 역의 권위 상태다.
+struct CountFlowState: Equatable {
+    let stationIndex: Int
+    let elapsedMilliseconds: Int
+    let onboardCount: Int
+    let nextEventIndex: Int
+    let countRevision: Int
+    let phase: PassengerFlowPhase
+}
+
+struct FlowAdvance: Equatable {
+    let state: CountFlowState
+    let appliedEvents: [PassengerFlowEvent]
+}
+
+enum CloseDoorResult: Equatable {
+    case exact
+    case under(by: Int)
+    case over(by: Int)
+    case stale
+}
+
+struct DoorCloseResolution: Equatable {
+    let result: CloseDoorResult
+    let onboardCount: Int
+    let targetOnboardCount: Int
+    let observedRevision: Int
+    let actualRevision: Int
+
+    var shouldCloseDoors: Bool { result != .stale }
+
+    /// 목표보다 적으면 음수, 많으면 양수다. stale 입력은 판정하지 않는다.
+    var signedDelta: Int? {
+        shouldCloseDoors ? onboardCount - targetOnboardCount : nil
+    }
+}
+
 struct GridPosition: Hashable, Equatable {
     let column: Int
     let row: Int
@@ -136,6 +275,26 @@ struct RunSnapshot: Equatable {
     var canBrake = false
     var doorsOpen = false
     var lastBrakeGrade: BrakeGrade?
+    var destinationProgress: [PassengerKind: Int] = [
+        .circle: 0,
+        .triangle: 0,
+        .star: 0,
+        .square: 0
+    ]
+    var doorDestinations: [PassengerKind] = PassengerKind.destinations
+    var currentQueueSize = 0
+    var selectedDoor = 0
+    var routingQueueIndex = 0
+    var routingQueueCount = 10
+    var lastRoutingCorrect: Bool?
+    var clockStarted = false
+    var onboardCount = 0
+    var targetOnboardCount = 0
+    var countRevision = 0
+    var canCloseDoors = false
+    var lastCloseDelta: Int?
+    var flowProgress: Double = 0
+    var flowPhase: PassengerFlowPhase = .automaticExit
 
     var remaining: TimeInterval { max(0, duration - elapsed) }
 
@@ -178,11 +337,11 @@ struct RunResult: Equatable {
     }
 
     var headline: String {
-        completed ? "\(stage)단계 운행 성공!" : "\(exited)명 하차 · 다시 정위치로"
+        completed ? "\(stage)단계 운행 성공!" : "목표 인원에 다시 도전!"
     }
 
     var shareText: String {
-        "정위치! 만원열차 \(stage)단계에서 \(exited)명이 안전하게 내렸어요. 점수 \(score)점 · 연속 정위치 ×\(bestChain)"
+        "문 닫습니다! 지옥철 \(stage)단계에서 목표 인원을 연속 \(bestChain)번 맞췄어요. 점수 \(score)점"
     }
 }
 

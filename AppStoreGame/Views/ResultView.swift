@@ -58,9 +58,9 @@ struct ResultView: View {
                     }
 
                     HStack(spacing: 10) {
-                        resultStat(icon: "person.2.fill", title: "하차", value: "\(result.exited)명")
-                        resultStat(icon: "scope", title: "연속 정위치", value: "×\(result.bestChain)")
-                        resultStat(icon: "person.badge.plus", title: "탑승", value: "\(result.boarded)명")
+                        resultStat(icon: "person.2.fill", title: "내린 승객", value: "\(result.exited)명")
+                        resultStat(icon: "equal.circle.fill", title: "연속 정확", value: "×\(result.bestChain)")
+                        resultStat(icon: "person.badge.plus", title: "탄 승객", value: "\(result.boarded)명")
                     }
 
                     VStack(spacing: 12) {

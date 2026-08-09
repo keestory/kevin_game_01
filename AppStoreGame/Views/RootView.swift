@@ -21,6 +21,11 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: model.route)
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-autoStart"), case .home = model.route {
+                model.startGame()
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             model.setApplicationActive(phase == .active)
         }

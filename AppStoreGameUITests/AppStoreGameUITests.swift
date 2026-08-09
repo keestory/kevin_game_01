@@ -22,7 +22,7 @@ final class AppStoreGameUITests: XCTestCase {
             tutorial.tap()
         }
         XCTAssertTrue(app.buttons["pauseButton"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons["brakeButton"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["closeDoorButton"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.otherElements["trainGameScene"].waitForExistence(timeout: 2))
 
         let gameScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())

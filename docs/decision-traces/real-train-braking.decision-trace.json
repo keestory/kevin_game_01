@@ -1,14 +1,14 @@
 {
   "decision_trace_format_version": "0.1",
   "trace_id": "real-train-braking-trace",
-  "title": "정위치! 만원열차 Product Decision Trace",
+  "title": "문 닫습니다! 지옥철 Product Decision Trace",
   "created_at": "2026-08-09T12:30:00Z",
-  "updated_at": "2026-08-09T12:30:00Z",
+  "updated_at": "2026-08-09T13:38:00Z",
   "subject": {
     "type": "product_spec",
     "id": "real-train-braking",
     "product_spec_path": "../product-specs/real-train-braking.product-spec.md",
-    "product_spec_revision": 1
+    "product_spec_revision": 3
   },
   "events": [
     {
@@ -23,7 +23,7 @@
       "decision": {
         "outcome": "update_spec",
         "rationale": "A side-view train with one-tap braking makes the theme part of the input and outcome instead of decorative framing.",
-        "approved_by": ["Project owner", "Product Orchestrator"]
+        "approved_by": ["Project owner", "Game UX", "Market Strategy", "Engineering and QA", "Product Orchestrator"]
       }
     },
     {
@@ -46,6 +46,36 @@
         "outcome": "record_learning",
         "rationale": "The service must not claim launch readiness when only code evidence exists; user, business, TestFlight, and App Store gates need durable IDs and receipts.",
         "approved_by": ["Project owner", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "reject-flat-train-adopt-platform-routing",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T13:13:28Z",
+      "summary": "The project owner rejected the flat side-view braking screen because it did not match the expected premium train, platform crowd, destination zones, effects, and large physical control.",
+      "drift": {
+        "spec_claim": "Revision 1 selected a side-view train and one-tap brake timing as the current validation loop.",
+        "observed_reality": "The owner reference communicates a front-left toy diorama, four destination queues and doors, visible crowd exchange, and a large left-center-right lever as the primary interaction."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Revision 2 tests platform destination routing with a physical lever while preserving revision 1 as rejected evidence and retaining brake timing only as an experiment comparator.",
+        "approved_by": ["Project owner", "Game UX", "Market Strategy", "Engineering and QA", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "reject-symbol-routing-adopt-hell-train-capacity-timing",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T13:38:00Z",
+      "summary": "The project owner rejected destination-symbol door matching as a train-themed matching interface without a compelling train game.",
+      "drift": {
+        "spec_claim": "Revision 2 hypothesized that selecting a destination-matched door with a lever would create a replayable train loop.",
+        "observed_reality": "The owner expected the train's motion, crowd surge, station-specific passenger count, and door-closing timing to determine play."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Revision 3 makes visible passenger threshold crossings change onboard count and asks the player to close all doors at the station target, while avoiding unsafe moving-train boarding imagery.",
+        "approved_by": ["Project owner", "Game UX", "Market Strategy", "Engineering and QA", "Product Orchestrator"]
       }
     }
   ]
