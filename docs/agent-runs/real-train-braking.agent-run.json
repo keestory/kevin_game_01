@@ -1,0 +1,144 @@
+{
+  "agent_run_format_version": "0.1",
+  "run_id": "real-train-braking-run-001efeb",
+  "agent": {
+    "name": "Codex",
+    "version": "desktop"
+  },
+  "product_spec": {
+    "path": "docs/product-specs/real-train-braking.product-spec.md",
+    "spec_revision": 1,
+    "content_hash": "sha256:600ae63f40ef85268388968c2213ea977214a29cf08735ceb1c6a06567e06ab9"
+  },
+  "started_at": "2026-08-09T11:35:00Z",
+  "completed_at": "2026-08-09T13:05:00Z",
+  "status": "blocked",
+  "checked_items": [
+    {
+      "item_id": "AC-1",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "github_pr",
+          "url": "https://github.com/keestory/kevin_game_01/pull/1"
+        },
+        {
+          "type": "other",
+          "url": "../screenshots/game-real-train-v1.png"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-2",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../AppStoreGame/Views/GameContainerView.swift"
+        },
+        {
+          "type": "code",
+          "url": "../../AppStoreGameTests/GameRulesTests.swift"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-3",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../AppStoreGameTests/GameRulesTests.swift"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-4",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-5",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-6",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../AppStoreGame/App/AppModel.swift"
+        },
+        {
+          "type": "code",
+          "url": "../../AppStoreGameTests/GameRulesTests.swift"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-7",
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "code",
+          "url": "../../.github/workflows/product-harness.yml"
+        },
+        {
+          "type": "other",
+          "url": "../06-quality/test-plan.md"
+        },
+        {
+          "type": "github_pr",
+          "url": "https://github.com/keestory/kevin_game_01/commit/001efebbd358d52fc1a016b724920de8c52652d5"
+        }
+      ]
+    },
+    {
+      "item_id": "AC-8",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-9",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "AC-10",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-1",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-2",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-3",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-4",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-5",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-6",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-7",
+      "status": "not_checked"
+    },
+    {
+      "item_id": "SM-8",
+      "status": "not_checked"
+    }
+  ],
+  "drift": {
+    "detected": false
+  },
+  "completion_claim": "Implementation commit 001efeb satisfies local prototype checks AC-1, AC-2, AC-3, AC-6, and AC-7. The Product Harness remains blocked because AC-4 door-passage video evidence, AC-5 real-device accessibility evidence, AC-8 external user validation, AC-9 TestFlight soak, AC-10 App Store readiness, and all post-launch success metrics are not checked."
+}
