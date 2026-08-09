@@ -135,6 +135,15 @@ final class GameRulesTests: XCTestCase {
     }
 
     @MainActor
+    func testFutureProfileVersionIsRejected() {
+        let json = #"{"version":99,"bestScore":999999}"#
+
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(PlayerProfile.self, from: Data(json.utf8))
+        )
+    }
+
+    @MainActor
     func testCompletedResultHeadlineIncludesStageNumber() {
         let result = RunResult(
             score: 1_200,
@@ -152,3 +161,94 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(result.headline, "7역 통과!")
     }
 }
+
+#if !SWIFT_PACKAGE
+@MainActor
+private final class ControlledRewardedAdService: RewardedAdServing {
+    var isReady: Bool { true }
+    private(set) var continuation: CheckedContinuation<RewardedAdOutcome, Never>?
+
+    func showRescueAd() async -> RewardedAdOutcome {
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func complete(with outcome: RewardedAdOutcome) {
+        continuation?.resume(returning: outcome)
+        continuation = nil
+    }
+}
+
+@MainActor
+final class AppModelLifecycleTests: XCTestCase {
+    func testUnsupportedProfileIsBackedUpBeforeReset() {
+        let suiteName = "AppModelLifecycleTests.profile.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let data = Data(#"{"version":99,"bestScore":999999}"#.utf8)
+        defaults.set(data, forKey: "oneMoreCar.playerProfile.v1")
+
+        let profile = PersistenceService(defaults: defaults).load()
+
+        XCTAssertEqual(profile, PlayerProfile())
+        XCTAssertEqual(defaults.data(forKey: "oneMoreCar.playerProfile.recovery"), data)
+    }
+
+    func testRewardFromReplacedRunIsIgnored() async {
+        let context = makeAdTestContext()
+        let model = context.model
+        let service = context.service
+        model.startGame()
+        let staleScene = try! XCTUnwrap(model.currentScene)
+        model.gameScene(staleScene, didEmit: .rescueRequested)
+
+        let rewardTask = Task { await model.acceptRescue() }
+        while service.continuation == nil { await Task.yield() }
+        model.goHome()
+        model.startGame()
+        service.complete(with: .rewarded(impressionID: "stale-impression"))
+        await rewardTask.value
+
+        XCTAssertEqual(model.profile.rewardedContinuesUsedTotal, 0)
+        XCTAssertFalse(model.hasPendingRescueReward)
+    }
+
+    func testRewardDoesNotResumeRunWhileAppIsInactive() async {
+        let context = makeAdTestContext()
+        let model = context.model
+        let service = context.service
+        model.startGame()
+        let scene = try! XCTUnwrap(model.currentScene)
+        model.gameScene(scene, didEmit: .rescueRequested)
+
+        let rewardTask = Task { await model.acceptRescue() }
+        while service.continuation == nil { await Task.yield() }
+        model.setApplicationActive(false)
+        service.complete(with: .rewarded(impressionID: "background-impression"))
+        await rewardTask.value
+
+        XCTAssertEqual(model.profile.rewardedContinuesUsedTotal, 1)
+        XCTAssertTrue(model.showRescueOffer)
+        XCTAssertTrue(model.hasPendingRescueReward)
+    }
+
+    private func makeAdTestContext() -> (
+        model: AppModel,
+        service: ControlledRewardedAdService
+    ) {
+        let suiteName = "AppModelLifecycleTests.ad.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.set(
+            Data(#"{"version":2,"freeRescueUsed":true}"#.utf8),
+            forKey: "oneMoreCar.playerProfile.v1"
+        )
+        let service = ControlledRewardedAdService()
+        let model = AppModel(
+            persistence: PersistenceService(defaults: defaults),
+            seed: 20260809,
+            rewardedAdService: service
+        )
+        addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
+        return (model, service)
+    }
+}
+#endif

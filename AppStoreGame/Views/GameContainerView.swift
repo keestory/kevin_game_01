@@ -64,7 +64,7 @@ private struct GameHUD: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(snapshot.stage)역  ·  목표 \(snapshot.targetScore.formatted())")
-                    .font(.system(size: 9, weight: .black, design: .rounded))
+                    .font(.system(size: 11, weight: .black, design: .rounded))
                     .foregroundStyle(.white.opacity(0.45))
                 Text("\(snapshot.score.formatted()) / \(snapshot.targetScore.formatted())")
                     .font(.system(size: 22, weight: .black, design: .rounded))
@@ -89,7 +89,7 @@ private struct GameHUD: View {
             HStack(spacing: 7) {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(snapshot.assisted ? "도움 운행" : "안전 손잡이")
-                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .font(.system(size: 11, weight: .black, design: .rounded))
                         .foregroundStyle(.white.opacity(0.45))
                     Text("×\(snapshot.safetyHandles)")
                         .font(.system(size: 18, weight: .black, design: .rounded))
@@ -97,7 +97,7 @@ private struct GameHUD: View {
                 Button(action: pause) {
                     Image(systemName: "pause.fill")
                         .font(.system(size: 14, weight: .black))
-                        .frame(width: 42, height: 42)
+                        .frame(width: 44, height: 44)
                         .background(Color.white.opacity(0.10), in: Circle())
                 }
                 .foregroundStyle(.white)
@@ -139,7 +139,7 @@ private struct RescueOverlay: View {
                         .multilineTextAlignment(.center)
                 }
 
-                if model.rescueOfferIsFree || model.isRewardedAdAvailable {
+                if model.rescueOfferIsFree || model.isRewardedAdAvailable || model.hasPendingRescueReward {
                     Button {
                         Task { await model.acceptRescue() }
                     } label: {
@@ -147,9 +147,13 @@ private struct RescueOverlay: View {
                             if model.isRescueLoading {
                                 ProgressView().tint(Color.trainNavy)
                             } else {
-                                Image(systemName: model.rescueOfferIsFree ? "cross.case.fill" : "play.rectangle.fill")
+                                Image(systemName: model.hasPendingRescueReward ? "checkmark.seal.fill" : (model.rescueOfferIsFree ? "cross.case.fill" : "play.rectangle.fill"))
                             }
-                            Text(model.rescueOfferIsFree ? "첫 운행 무료 구조" : "광고 1회 보고 구조 요청")
+                            Text(
+                                model.hasPendingRescueReward
+                                    ? "받은 보상으로 구조 계속"
+                                    : (model.rescueOfferIsFree ? "첫 운행 무료 구조" : "광고 1회 보고 구조 요청")
+                            )
                         }
                     }
                     .buttonStyle(PrimaryButtonStyle())

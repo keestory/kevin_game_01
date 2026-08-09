@@ -107,7 +107,7 @@ struct HomeView: View {
                                 .foregroundStyle(.white.opacity(0.72))
                                 .padding(.vertical, 8)
                         }
-                        .accessibilityIdentifier("shareChallengeButton")
+                        .accessibilityIdentifier("shareRecordButton")
                     }
                 }
                 .padding(.horizontal, 20)

@@ -19,6 +19,9 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
     private let seed: UInt64
     private let rewardedAdService: any RewardedAdServing
     private var processedImpressionIDs = Set<String>()
+    private var activeRunID: UUID?
+    private var pendingRewardRunID: UUID?
+    private var appIsActive = true
 
     var hapticsEnabled: Bool {
         UserDefaults.standard.object(forKey: "settings.haptics") as? Bool ?? true
@@ -33,6 +36,9 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
 
     var rescueOfferIsFree: Bool { !profile.freeRescueUsed }
     var isRewardedAdAvailable: Bool { rewardedAdService.isReady }
+    var hasPendingRescueReward: Bool {
+        pendingRewardRunID != nil && pendingRewardRunID == activeRunID
+    }
 
     init(
         persistence: PersistenceService = .shared,
@@ -56,6 +62,8 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
 
     func startGame() {
         let difficulty = currentDifficulty
+        activeRunID = UUID()
+        pendingRewardRunID = nil
         let stageSeed = seed ^ (UInt64(difficulty.stage) &* 0x9E3779B97F4A7C15)
         let newScene = GameScene(
             size: CGSize(width: 390, height: 844),
@@ -89,6 +97,11 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
     func acceptRescue() async {
         guard showRescueOffer, !isRescueLoading else { return }
 
+        if hasPendingRescueReward {
+            completeRescueForActiveRun()
+            return
+        }
+
         if rescueOfferIsFree {
             profile.freeRescueUsed = true
             persistence.save(profile)
@@ -102,18 +115,30 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
             return
         }
 
+        guard let requestedRunID = activeRunID,
+              let requestedScene = currentScene else { return }
+
         isRescueLoading = true
         rescueErrorMessage = nil
         let outcome = await rewardedAdService.showRescueAd()
         isRescueLoading = false
+
+        guard activeRunID == requestedRunID,
+              currentScene === requestedScene,
+              case .game = route,
+              showRescueOffer else { return }
 
         switch outcome {
         case .rewarded(let impressionID):
             guard processedImpressionIDs.insert(impressionID).inserted else { return }
             profile.rewardedContinuesUsedTotal += 1
             persistence.save(profile)
-            showRescueOffer = false
-            currentScene?.acceptRescue()
+            if appIsActive {
+                completeRescueForActiveRun()
+            } else {
+                pendingRewardRunID = requestedRunID
+                rescueErrorMessage = "구조 보상을 받았어요. 앱으로 돌아와 계속 운행해 주세요."
+            }
         case .dismissed:
             rescueErrorMessage = "광고를 끝까지 보면 구조를 받을 수 있어요."
         case .unavailable, .failed:
@@ -129,8 +154,25 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
 
     func goHome() {
         currentScene?.removeAllActions()
+        activeRunID = nil
+        pendingRewardRunID = nil
         showRescueOffer = false
         route = .home
+    }
+
+    func setApplicationActive(_ isActive: Bool) {
+        appIsActive = isActive
+        if !isActive, case .game = route {
+            pause()
+        }
+    }
+
+    private func completeRescueForActiveRun() {
+        guard appIsActive, activeRunID != nil else { return }
+        pendingRewardRunID = nil
+        showRescueOffer = false
+        rescueErrorMessage = nil
+        currentScene?.acceptRescue()
     }
 
     func gameScene(_ scene: GameScene, didEmit event: GameEvent) {
@@ -156,6 +198,8 @@ final class AppModel: ObservableObject, TrainGameSceneDelegate {
                 profile.consecutiveFailures += 1
             }
             persistence.save(profile)
+            activeRunID = nil
+            pendingRewardRunID = nil
             showRescueOffer = false
             route = .result(result)
         }

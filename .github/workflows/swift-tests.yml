@@ -16,3 +16,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run deterministic game-rule tests
         run: swift test
+
+  ios-app-build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build iOS app for Simulator
+        run: >-
+          xcodebuild -quiet
+          -project AppStoreGame.xcodeproj
+          -scheme AppStoreGame
+          -configuration Debug
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build

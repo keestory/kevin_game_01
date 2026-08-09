@@ -22,9 +22,7 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: model.route)
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active, case .game = model.route {
-                model.pause()
-            }
+            model.setApplicationActive(phase == .active)
         }
     }
 }

@@ -6,18 +6,24 @@ final class PersistenceService {
 
     private let defaults: UserDefaults
     private let profileKey = "oneMoreCar.playerProfile.v1"
+    private let recoveryKey = "oneMoreCar.playerProfile.recovery"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
     func load() -> PlayerProfile {
-        guard let data = defaults.data(forKey: profileKey),
-              let profile = try? JSONDecoder().decode(PlayerProfile.self, from: data),
-              profile.version <= 2 else {
+        guard let data = defaults.data(forKey: profileKey) else {
             return PlayerProfile()
         }
-        return profile
+        do {
+            return try JSONDecoder().decode(PlayerProfile.self, from: data)
+        } catch {
+            if defaults.data(forKey: recoveryKey) == nil {
+                defaults.set(data, forKey: recoveryKey)
+            }
+            return PlayerProfile()
+        }
     }
 
     func save(_ profile: PlayerProfile) {

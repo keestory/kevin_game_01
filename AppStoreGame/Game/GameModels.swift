@@ -185,6 +185,14 @@ struct PlayerProfile: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        let storedVersion = try values.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        guard (1...2).contains(storedVersion) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .version,
+                in: values,
+                debugDescription: "Unsupported player profile version \(storedVersion)"
+            )
+        }
         version = 2
         bestScore = try values.decodeIfPresent(Int.self, forKey: .bestScore) ?? 0
         totalRuns = try values.decodeIfPresent(Int.self, forKey: .totalRuns) ?? 0

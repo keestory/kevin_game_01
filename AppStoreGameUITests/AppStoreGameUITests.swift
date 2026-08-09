@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class AppStoreGameUITests: XCTestCase {
     func testFirstRunCanEnterGame() {
         let app = XCUIApplication()
