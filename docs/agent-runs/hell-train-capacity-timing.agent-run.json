@@ -98,7 +98,21 @@
     },
     {
       "item_id": "AC-9",
-      "status": "not_checked"
+      "status": "passed",
+      "evidence": [
+        {
+          "type": "github_pr",
+          "url": "https://github.com/keestory/kevin_game_01/pull/1"
+        },
+        {
+          "type": "code",
+          "url": "../../.github/workflows/product-harness.yml"
+        },
+        {
+          "type": "code",
+          "url": "../../.github/workflows/swift-tests.yml"
+        }
+      ]
     },
     {
       "item_id": "AC-10",
@@ -148,5 +162,5 @@
   "drift": {
     "detected": false
   },
-  "completion_claim": "ProductSpec revision 3 has a playable five-station capacity-timing implementation at commits 5fac0c4 and 241d9b2. Local SwiftPM tests passed 32 of 32; Xcode unit and Scene integration tests passed 41 of 41; the first-run UI smoke test passed 1 of 1; current and archived Product Specs, the Decision Trace, and Agent Runs validate. The Product Harness remains blocked because independent user comprehension and replay evidence, minimum-device performance and accessibility evidence, independent asset similarity review, TestFlight soak, App Store readiness, retention, acquisition, and unit economics are not checked. No Korean App Store rank claim is made."
+  "completion_claim": "ProductSpec revision 3 has a playable five-station capacity-timing implementation at commits 5fac0c4 and 241d9b2. Local SwiftPM tests passed 32 of 32; Xcode unit and Scene integration tests passed 41 of 41; the first-run UI smoke test passed 1 of 1; current and archived Product Specs, the Decision Trace, and Agent Runs validate. GitHub Product Harness, game-core, and unsigned iOS app-build checks passed for commit 213858a. The Product Harness remains blocked because independent user comprehension and replay evidence, minimum-device performance and accessibility evidence, independent asset similarity review, TestFlight soak, App Store readiness, retention, acquisition, and unit economics are not checked. No Korean App Store rank claim is made."
 }
