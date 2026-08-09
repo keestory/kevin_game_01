@@ -6,11 +6,11 @@
 > 게임 후보로서 구현·검증할 가치는 있지만, 사용자 유지율·한국 CPI·LTV·필요 설치량이 아직 없으므로 “1위 가능”이나 출시 준비 완료로 판정하지 않습니다.
 
 ![지옥철 홈 화면](docs/screenshots/home-hell-train-r3.png)
-![지옥철 실제 게임 화면](docs/screenshots/game-hell-train-r3.png)
+![오너 승인 마스터 디자인을 적용한 실제 게임 화면](docs/screenshots/game-hell-train-r4.png)
 
 ## 지금 플레이할 수 있는 것
 
-- 전면과 측면이 함께 보이는 원본 2.5D 열차, 네 개의 문, 한국 야간 통근 분위기
+- 오너가 제공하고 승인한 세로형 2.5D 디오라마 마스터 구도, 네 개의 문, 야간 통근 분위기, 상단 아이콘 HUD와 하단 금색 레버
 - `자동 하차 → 단조 증가하는 탑승 → 목표 인원 순간 문 닫기 → 정확/안전/초과 판정` 루프
 - 서로 다른 시작·목표 인원을 가진 결정론적 5개 역, 약 60초 운행
 - 첫 역은 목표 숫자를 최소 1.2초, 이후 역은 최소 0.6초 유지해 처음부터 억울하게 놓치지 않는 난이도
@@ -51,7 +51,7 @@ swift test --disable-sandbox --scratch-path .build/swiftpm
 ## Product Harness와 개발 지침
 
 - 개발 지침: [2026 제품 개발 멀티 에이전트 플레이북](docs/PRODUCT_DEVELOPMENT_MULTI_AGENT_PLAYBOOK_2026.md)
-- 현재 Source of Truth: [ProductSpec rev3](docs/product-specs/real-train-braking.product-spec.md)
+- 현재 Source of Truth: [ProductSpec rev4](docs/product-specs/real-train-braking.product-spec.md)
 - 의사결정 이력: [Decision Trace](docs/decision-traces/real-train-braking.decision-trace.json)
 - 기각안 보관: [rev1 제동](docs/product-specs/archive/real-train-braking.rev1.product-spec.md), [rev2 문양 라우팅](docs/product-specs/archive/platform-routing.rev2.product-spec.md)
 - 시장 근거: [Evidence Register](docs/01-research/evidence-register.md), [Competitor Matrix](docs/01-research/competitor-matrix.md)

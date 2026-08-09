@@ -3,12 +3,12 @@
   "trace_id": "real-train-braking-trace",
   "title": "문 닫습니다! 지옥철 Product Decision Trace",
   "created_at": "2026-08-09T12:30:00Z",
-  "updated_at": "2026-08-09T13:38:00Z",
+  "updated_at": "2026-08-09T14:58:38Z",
   "subject": {
     "type": "product_spec",
     "id": "real-train-braking",
     "product_spec_path": "../product-specs/real-train-braking.product-spec.md",
-    "product_spec_revision": 3
+    "product_spec_revision": 4
   },
   "events": [
     {
@@ -76,6 +76,21 @@
         "outcome": "update_spec",
         "rationale": "Revision 3 makes visible passenger threshold crossings change onboard count and asks the player to close all doors at the station target, while avoiding unsafe moving-train boarding imagery.",
         "approved_by": ["Project owner", "Game UX", "Market Strategy", "Engineering and QA", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "adopt-owner-master-as-runtime-visual-contract",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T14:58:38Z",
+      "summary": "The project owner rejected the independently reinterpreted rev3 presentation because it did not reproduce the supplied premium vertical diorama design.",
+      "drift": {
+        "spec_claim": "Revision 3 prohibited the owner reference from runtime and treated a separate generated concept as the quality guide.",
+        "observed_reality": "The owner explicitly preferred the supplied composition over every reinterpretation and directed the project to reproduce it as-is rather than search for an alternative."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Revision 4 uses the owner-supplied image as the prototype runtime visual master, adds only safe-area padding, and keeps current count, threshold passengers, feedback, and the gold center control as live overlays.",
+        "approved_by": ["Project owner", "Product Orchestrator"]
       }
     }
   ]

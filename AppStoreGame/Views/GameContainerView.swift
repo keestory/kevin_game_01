@@ -20,20 +20,19 @@ struct GameContainerView: View {
             .accessibilityIdentifier("trainGameScene")
 
             VStack(spacing: 0) {
-                GameHUD(snapshot: model.snapshot) {
+                OwnerReferenceHUD(snapshot: model.snapshot) {
                     model.pause()
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
+                .padding(.horizontal, 20)
+                .padding(.top, 68)
 
                 Spacer()
 
-                CloseDoorLever(
+                OwnerReferenceLever(
                     snapshot: model.snapshot,
                     close: { scene.closeDoors(observedRevision: model.snapshot.countRevision) }
                 )
-                .padding(.horizontal, 14)
-                .padding(.bottom, 7)
+                .padding(.bottom, 3)
             }
 
             if model.showTutorial {
@@ -65,6 +64,7 @@ struct GameContainerView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: model.showTutorial)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: model.snapshot.phase)
+        .statusBarHidden(true)
     }
 
     private var gameAccessibilityValue: String {
@@ -76,6 +76,87 @@ struct GameContainerView: View {
             return delta > 0 ? "\(delta)명 초과" : "\(-delta)명 부족"
         }
         return "현재 \(model.snapshot.onboardCount)명, 목표 \(model.snapshot.targetOnboardCount)명, \(model.snapshot.timeText)초 남음"
+    }
+}
+
+private struct OwnerReferenceHUD: View {
+    let snapshot: RunSnapshot
+    let pause: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            chip("\(snapshot.stopIndex)/5", color: Color.trainNavy, foreground: .white)
+            chip("현 \(snapshot.onboardCount)", color: Color.exitMint, foreground: Color.trainNavy)
+                .contentTransition(.numericText())
+            chip("목 \(snapshot.targetOnboardCount)", color: Color.alertCoral, foreground: .white)
+            chip("정 \(snapshot.currentChain)", color: Color(hex: 0x63A5FF), foreground: Color.trainNavy)
+            chip(snapshot.clockStarted ? snapshot.timeText : "60", color: Color.safetyYellow, foreground: Color.trainNavy)
+                .monospacedDigit()
+
+            Button(action: pause) {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 12, weight: .black))
+                    .frame(width: 32, height: 32)
+                    .background(Color.trainNavy.opacity(0.92), in: RoundedRectangle(cornerRadius: 11))
+                    .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.white.opacity(0.22)))
+            }
+            .foregroundStyle(.white)
+            .accessibilityLabel("일시정지")
+            .accessibilityIdentifier("pauseButton")
+        }
+        .frame(maxWidth: .infinity)
+        .shadow(color: Color.black.opacity(0.40), radius: 8, y: 3)
+    }
+
+    private func chip(_ text: String, color: Color, foreground: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .black, design: .rounded))
+            .foregroundStyle(foreground)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(maxWidth: .infinity, minHeight: 30)
+            .background(color.opacity(0.92), in: Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.50), lineWidth: 1))
+    }
+}
+
+private struct OwnerReferenceLever: View {
+    let snapshot: RunSnapshot
+    let close: () -> Void
+
+    var body: some View {
+        Button(action: close) {
+            ZStack {
+                Circle()
+                    .fill(Color.clear)
+                    .frame(width: 116, height: 116)
+
+                Circle()
+                    .stroke(
+                        snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.safetyYellow,
+                        lineWidth: snapshot.canCloseDoors ? 5 : 2
+                    )
+                    .frame(width: snapshot.canCloseDoors ? 108 : 96, height: snapshot.canCloseDoors ? 108 : 96)
+                    .shadow(
+                        color: (snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.safetyYellow).opacity(snapshot.canCloseDoors ? 0.72 : 0.20),
+                        radius: snapshot.canCloseDoors ? 18 : 4
+                    )
+
+                if snapshot.onboardCount == snapshot.targetOnboardCount, snapshot.canCloseDoors {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 30, weight: .black))
+                        .foregroundStyle(Color.trainNavy)
+                        .padding(21)
+                        .background(Color.exitMint, in: Circle())
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 122)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!snapshot.canCloseDoors)
+        .accessibilityLabel(snapshot.canCloseDoors ? "문 닫기, 현재 \(snapshot.onboardCount)명, 목표 \(snapshot.targetOnboardCount)명" : "하차 중")
+        .accessibilityIdentifier("closeDoorButton")
     }
 }
 

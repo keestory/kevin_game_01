@@ -31,6 +31,10 @@ final class GameRulesTests: XCTestCase {
         XCTAssertNotEqual(first, different)
         XCTAssertEqual(first.stations.count, 5)
         XCTAssertEqual(first.stations.map(\.index), [1, 2, 3, 4, 5])
+        XCTAssertEqual(
+            first.stations.map(\.minimumTargetHoldMilliseconds),
+            [1_200, 950, 800, 700, 600]
+        )
         for index in 1..<first.stations.count {
             XCTAssertEqual(
                 first.stations[index].initialOnboard,
@@ -815,6 +819,8 @@ final class GameSceneIntegrationTests: XCTestCase {
 
         let result = try! XCTUnwrap(recorder.result)
         XCTAssertTrue(result.completed)
+        XCTAssertEqual(result.bestChain, 5)
+        XCTAssertEqual(result.score, 7_500)
         XCTAssertGreaterThan(result.exited, 0)
         XCTAssertGreaterThan(result.boarded, 0)
         XCTAssertFalse(recorder.rescueRequested)

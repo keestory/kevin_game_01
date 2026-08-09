@@ -26,6 +26,8 @@ final class GameScene: SKScene {
     private var rescuePending = false
     private var reduceMotion = false
     private var exactStops = 0
+    private var exactStreak = 0
+    private var bestExactStreak = 0
     private var safeStops = 0
 
     private let worldRoot = SKNode()
@@ -40,6 +42,7 @@ final class GameScene: SKScene {
     private let particleLayer = SKNode()
     private let countCardRoot = SKNode()
     private let countCard = SKShapeNode()
+    private let masterSceneSprite = SKSpriteNode()
     private let targetLabel = SKLabelNode()
     private let currentLabel = SKLabelNode()
     private let statusLabel = SKLabelNode()
@@ -92,12 +95,8 @@ final class GameScene: SKScene {
     override func didMove(to view: SKView) {
         guard worldRoot.parent == nil else { return }
         view.isMultipleTouchEnabled = false
-        buildNightWorld()
-        buildPlatform()
-        buildTrain()
-        buildCountCard()
+        buildOwnerMasterWorld()
         prewarmPassengerPool(count: 36)
-        buildAmbientPlatformCrowd()
         configureStation(at: 0, animated: false)
         snapshot.phase = .playing
         emitSnapshot()
@@ -283,14 +282,18 @@ final class GameScene: SKScene {
         switch resolution.result {
         case .exact:
             exactStops += 1
+            exactStreak += 1
+            bestExactStreak = max(bestExactStreak, exactStreak)
             snapshot.currentChain = exactStops
-            snapshot.bestChain = max(snapshot.bestChain, exactStops)
-            snapshot.score += 1_000
+            snapshot.bestChain = bestExactStreak
+            snapshot.score += 1_000 + max(0, exactStreak - 1) * 250
             snapshot.lastBrakeGrade = .perfect
-            showResult("정원 딱 맞음!  \(resolution.onboardCount)/\(resolution.targetOnboardCount)", color: UIColor(hex: 0x54D69B))
+            let streakText = exactStreak >= 2 ? " · 정확 ×\(exactStreak)" : ""
+            showResult("정원 딱 맞음!\(streakText)", color: UIColor(hex: 0x54D69B))
             celebrateExact()
             gameDelegate?.gameScene(self, didEmit: .perfect)
         case .under(let count):
+            exactStreak = 0
             if count == 1 {
                 safeStops += 1
                 snapshot.score += 400
@@ -302,6 +305,7 @@ final class GameScene: SKScene {
             }
             showResult("\(count)자리 비었어요 · \(resolution.onboardCount)/\(resolution.targetOnboardCount)", color: UIColor(hex: 0x67A9FF))
         case .over(let count):
+            exactStreak = 0
             if count == 1 {
                 safeStops += 1
                 snapshot.score += 400
@@ -340,7 +344,7 @@ final class GameScene: SKScene {
             score: snapshot.score,
             boarded: snapshot.boarded,
             exited: snapshot.exited,
-            bestChain: exactStops,
+            bestChain: bestExactStreak,
             completed: completed,
             dailySeed: seed,
             stage: snapshot.stage,
@@ -403,6 +407,41 @@ final class GameScene: SKScene {
         canopy.glowWidth = 4
         canopy.zPosition = -40
         worldRoot.addChild(canopy)
+    }
+
+    /// The owner-approved reference is the runtime composition contract.
+    /// Dynamic passengers, count feedback, and effects are layered above it.
+    private func buildOwnerMasterWorld() {
+        worldRoot.zPosition = -100
+        addChild(worldRoot)
+
+        let texture = SKTexture(imageNamed: "OwnerMasterScene")
+        texture.filteringMode = .linear
+        let sourceSize = texture.size()
+        let scale = max(
+            size.width / max(1, sourceSize.width),
+            size.height / max(1, sourceSize.height)
+        )
+        masterSceneSprite.texture = texture
+        masterSceneSprite.size = CGSize(
+            width: sourceSize.width * scale,
+            height: sourceSize.height * scale
+        )
+        masterSceneSprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        masterSceneSprite.zPosition = -120
+        worldRoot.addChild(masterSceneSprite)
+
+        passengerTransitLayer.zPosition = 20
+        worldRoot.addChild(passengerTransitLayer)
+        particleLayer.zPosition = 80
+        worldRoot.addChild(particleLayer)
+
+        resultLabel.fontName = "AppleSDGothicNeo-Heavy"
+        resultLabel.fontSize = 22
+        resultLabel.position = CGPoint(x: size.width / 2, y: 585)
+        resultLabel.zPosition = 90
+        resultLabel.alpha = 0
+        worldRoot.addChild(resultLabel)
     }
 
     private func buildPlatform() {
@@ -625,7 +664,7 @@ final class GameScene: SKScene {
                 x: CGFloat(44 + ((event.id * 67 + passengerIndex * 31) % 300)),
                 y: CGFloat(232 + ((event.id + passengerIndex) % 3) * 20)
             )
-            let platformInTrain = trainRoot.convert(platformPoint, from: worldRoot)
+            let platformInTrain = platformPoint
             // Domain events are authoritative threshold crossings. Start the
             // visual at that same threshold so the visible count never leads it.
             passenger.position = doorThreshold
@@ -718,12 +757,8 @@ final class GameScene: SKScene {
 
     private func animateStationArrival() {
         guard !reduceMotion else { return }
-        trainRoot.position.x = 22
-        trainRoot.alpha = 0.75
-        trainRoot.run(.group([
-            eased(.moveTo(x: 0, duration: 0.48), mode: .easeOut),
-            .fadeAlpha(to: 1, duration: 0.30)
-        ]))
+        masterSceneSprite.alpha = 0.86
+        masterSceneSprite.run(.fadeAlpha(to: 1, duration: 0.34))
     }
 
     private func runTrainIdle() {
@@ -750,7 +785,12 @@ final class GameScene: SKScene {
     }
 
     private func doorPosition(_ index: Int) -> CGPoint {
-        CGPoint(x: trainCenter.x + doorOffsetsX[index], y: trainCenter.y - CGFloat(index) * 2)
+        let xPositions: [CGFloat] = [166, 235, 293, 347]
+        let yPositions: [CGFloat] = [424, 420, 416, 412]
+        return CGPoint(
+            x: xPositions[min(max(0, index), xPositions.count - 1)],
+            y: yPositions[min(max(0, index), yPositions.count - 1)]
+        )
     }
 
     private func eased(_ action: SKAction, mode: SKActionTimingMode) -> SKAction {

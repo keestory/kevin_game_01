@@ -176,7 +176,8 @@ enum GameRules {
                 countPassengerCapacity - targetOnboard
             )
             let totalBoarding = boardToTarget + passengersAfterTarget
-            let minimumTargetHold = stationIndex == 1 ? 1_200 : 600
+            let targetHoldByStation = [1_200, 950, 800, 700, 600]
+            let minimumTargetHold = targetHoldByStation[stationIndex - 1]
 
             var events: [PassengerFlowEvent] = []
             var eventTime = rng.int(in: 180...300)
