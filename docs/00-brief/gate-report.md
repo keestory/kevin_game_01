@@ -54,7 +54,7 @@
 | 순수 규칙 | Pass | SwiftPM 11/11 |
 | 앱 단위 테스트 | Pass | Xcode 14/14, 저장 recovery·광고 callback 포함 |
 | UI smoke | Pass | 첫 실행→홈→튜토리얼→게임 1/1 |
-| 원격 CI | Pending | 기존 game-core는 통과; iOS app-build job은 새 커밋 후 확인 필요 |
+| 원격 CI | Pass (현재 범위) | run `31311249450`: game-core와 ios-app-build 모두 통과. 앱 단위/UI/Release의 원격 실행은 아직 미구현 |
 | 분석·관측성 | Fail | 이벤트 계약 초안만 있고 실제 sink·데이터 QA 없음 |
 | 사용자·접근성 검증 | Fail | VoiceOver 코어 플레이, Reduce Motion, 대비, Larger Text와 실제 사용자 테스트 미완료 |
 | 배포 준비 | Fail | 고유 bundle ID, signing, archive, App Store Connect 정보 미완료 |

@@ -49,7 +49,7 @@
 1. 핵심 퍼널/크래시 관측성 부재(P1).
 2. VoiceOver 코어 조작, Reduce Motion, 큰 글자·대비 등 제품 접근성 Gate 실패(P1).
 3. 최소 5명 핵심 과업·광고 이해 사용성 Gate 미실행(P1).
-4. 새 `ios-app-build` CI job의 원격 실행 결과 Pending.
+4. 원격 CI는 game-core와 iOS 앱 컴파일을 통과했지만 앱 단위/UI/Release job은 미구현.
 5. 개발 팀·고유 bundle ID·서명 Archive 미설정(P1 Release).
 6. 실기기 성능/App Store Connect 개인정보 답변 미검증(Unknown).
 

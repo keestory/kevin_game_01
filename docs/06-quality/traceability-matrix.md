@@ -21,7 +21,7 @@
 | PRIV-02 | 실제 광고/분석 SDK 데이터 흐름 검증 | 해당 SDK 없음 | 도입 Gate만 문서화 | UNKNOWN |
 | OBS-01 | 시작→첫 성공→런 종료→구조 퍼널 측정 | 분석 계층 없음 | 이벤트 검증 없음 | FAIL (P1) |
 | CI-01 | PR에서 순수 규칙 테스트 | SwiftPM workflow | 원격 run 31308952608 성공 | PASS |
-| CI-02 | PR에서 iOS 앱 타깃 컴파일 | `ios-app-build` job 추가 | 로컬 성공; 새 commit 원격 실행 전 | PENDING |
+| CI-02 | PR에서 iOS 앱 타깃 컴파일 | `ios-app-build` job 추가 | 원격 run `31311249450` 성공 | PASS |
 | REL-01 | 배포 ID/서명/Archive 준비 | team 비어 있음, example bundle ID | Archive 미실시 | FAIL (P1, Release) |
 | A11Y-01 | 핵심 경로 VoiceOver/큰 글자/Reduce Motion/색 비의존 | 일부 ID·크기 수정, SpriteKit 직접 조작 미지원 | 제품 수용 기준 Fail/Not tested | FAIL (P1) |
 | USER-01 | 첫 사용자 핵심 과업과 광고 이해 검증 | 테스트 계획 존재 | 최소 5명 사용성 테스트 미실행 | FAIL (P1) |
@@ -31,7 +31,7 @@
 ## Gate 연결
 
 - Build Readiness 차단: 제품 `A11Y-01`, `USER-01`과 계측/데이터 계획의 실행 전 blocker가 남아 있다.
-- Implementation 차단: `OBS-01`, `A11Y-01`, `USER-01`, `REL-01`이 Fail이고 새 `CI-02` 원격 결과가 Pending이다.
+- Implementation 차단: `OBS-01`, `A11Y-01`, `USER-01`, `REL-01`이 Fail이다. `CI-02` 앱 컴파일은 통과했지만 앱 단위/UI/Release 원격 실행은 Release Checklist에 남아 있다.
 - 이전 `GAME-LIFE-02`, `DATA-02` P1은 현재 코드와 독립 simulator 테스트로 해소됐다.
 - 핵심 제품 루프 자체의 결정론 및 난이도 단위 증거는 통과했으나, 이것만으로 앱 전체 품질을 대표하지 않는다.
 
