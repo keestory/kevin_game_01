@@ -8,9 +8,9 @@
 
 | 영역 | 상태 | 현재 근거 / 다음 조치 |
 |---|---|---|
-| 색 이외 구분 | Pass for visual MVP | 벽돌마다 색+무늬+마크+형태, 프리즘 HP pip, 마이너스 큰 `−` |
+| 색 이외 구분 | Pass for visual MVP | 벽돌마다 색+무늬+마크+형태, 프리즘 HP pip, 마이너스 큰 `−`, 스킬 문자 glyph·종류 아이콘·L1~L3, armor plate |
 | VoiceOver 메뉴 | Partial | 주요 버튼 label·identifier 있음; 읽기 순서 실사용 필요 |
-| VoiceOver 코어 | Partial P1 | SpriteView가 점수·높이·콤보·LINK를 읽고 adjustable/custom action으로 패들을 48pt씩 이동; 시간 압박 속 실사용 미검증 |
+| VoiceOver 코어 | Partial P1 | SpriteView가 점수·높이·콤보·LINK·4종 스킬 레벨·관통 charge·armor를 읽고 adjustable/custom action으로 패들을 48pt씩 이동; 시간 압박 속 실사용 미검증 |
 | Voice/Switch Control | P1 | 핵심 흐름 실기기 미검증 |
 | Dynamic Type | P1 | SwiftUI semantic style 다수; 최대 접근성 크기 home/game/result 미검증 |
 | 터치 크기 | Pass for audited controls | pause·primary·home share 44pt 이상 |
@@ -26,6 +26,7 @@
 - [ ] SpriteView의 접근성 값이 매 프레임 음성을 끊지 않는다.
 - [ ] adjustable increment/decrement와 named custom action으로 패들을 좌우 이동한다.
 - [ ] 공 miss, LINK 5, 공명 폭주, 마이너스 penalty를 필요한 빈도로 알린다.
+- [ ] 코어 획득·레벨업, 관통 잔여 charge, 새 armor 구조를 필요한 빈도로 알린다.
 - [ ] 시각장애 사용자와 시간 압박·연속 반사 동등성을 검증한다.
 
 현재 코드는 대체 입력 경로를 제공하지만 실제 VoiceOver 사용성은 **미검증**이다.

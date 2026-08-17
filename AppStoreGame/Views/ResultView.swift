@@ -36,7 +36,7 @@ struct ResultView: View {
                         Text(result.headline)
                             .font(.system(size: 33, weight: .black, design: .rounded))
                             .multilineTextAlignment(.center)
-                        Text("점수 · 높이 · LINK 개인 기록")
+                        Text("점수 · 높이 · LINK · 스킬 빌드")
                             .foregroundStyle(.white.opacity(0.48))
                     }
 
@@ -94,6 +94,32 @@ struct ResultView: View {
                     HStack(spacing: 9) {
                         resultStat(icon: "bolt.fill", title: "공명 폭주", value: "\(result.powerActivations)회")
                         resultStat(icon: "square.3.layers.3d", title: "파괴·낙하", value: "\(result.destroyedBrickCount)개")
+                        resultStat(icon: "wand.and.stars", title: "스킬 코어", value: "\(result.totalItemsCollected)개")
+                    }
+
+                    if result.totalItemsCollected > 0 {
+                        HStack(spacing: 7) {
+                            ForEach(AttackItemKind.allCases, id: \.self) { kind in
+                                if result.attackItemLevels.level(for: kind) > 0 {
+                                    Label(
+                                        "\(kind.name) L\(result.attackItemLevels.level(for: kind))",
+                                        systemImage: kind.systemImage
+                                    )
+                                    .font(.system(size: 10, weight: .black, design: .rounded))
+                                    .foregroundStyle(Color(hex: kind.tintHex))
+                                    .padding(.horizontal, 7)
+                                    .frame(minHeight: 28)
+                                    .background(Color.white.opacity(0.07), in: Capsule())
+                                }
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(
+                            AttackItemKind.allCases
+                                .filter { result.attackItemLevels.level(for: $0) > 0 }
+                                .map { "\($0.name) 레벨 \(result.attackItemLevels.level(for: $0))" }
+                                .joined(separator: ", ")
+                        )
                     }
 
                     VStack(spacing: 12) {

@@ -4,7 +4,7 @@ import XCTest
 final class AppStoreGameUITests: XCTestCase {
     func testHomePlayPauseResultAndSameSeedRetryFlow() {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingFastFail"]
+        app.launchArguments = ["-uiTesting", "-uiTestingFastFail", "-skipTutorial"]
         app.launch()
 
         let start = app.buttons["startGameButton"]
@@ -17,6 +17,8 @@ final class AppStoreGameUITests: XCTestCase {
         let startPoint = game.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.75))
         let endPoint = game.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.75))
         startPoint.press(forDuration: 0.1, thenDragTo: endPoint)
+        XCTAssertTrue(app.staticTexts["skillCoreHUD"].waitForExistence(timeout: 2))
+        attachScreenshot(named: "return-shot-skill-game", app: app)
 
         let pause = app.buttons["pauseButton"]
         XCTAssertTrue(pause.waitForExistence(timeout: 2))

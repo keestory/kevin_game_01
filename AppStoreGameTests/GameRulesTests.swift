@@ -246,6 +246,501 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(result.scoreDeltaFromPreviousBest, 2_500)
     }
 
+    func testEverySegmentHasOneDeterministicCyclingNormalCarrierAndStageArmor() {
+        for segment in 0..<12 {
+            let expectedKind = AttackItemKind(rawValue: segment % AttackItemKind.allCases.count)
+            let expectedArmor = GameRules.stageArmor(segment: segment)
+
+            for seed in UInt64(0)..<64 {
+                let first = GameRules.returnShotBricks(seed: seed, segment: segment)
+                let replay = GameRules.returnShotBricks(seed: seed, segment: segment)
+                let carriers = first.filter { $0.embeddedItem != nil }
+
+                XCTAssertEqual(first, replay)
+                XCTAssertEqual(carriers.count, 1)
+                XCTAssertEqual(carriers.first?.embeddedItem, expectedKind)
+                XCTAssertEqual(carriers.first?.role, .normal)
+                XCTAssertTrue(
+                    first.filter { $0.role != .negative }
+                        .allSatisfy { $0.maximumArmor == expectedArmor && $0.armor == expectedArmor }
+                )
+                XCTAssertTrue(
+                    first.filter { $0.role == .negative }
+                        .allSatisfy { $0.maximumArmor == 0 && $0.armor == 0 }
+                )
+                XCTAssertTrue(first.filter { $0.role == .prism }.allSatisfy { $0.maximumHitPoints == 3 })
+            }
+        }
+    }
+
+    func testArmorAbsorbsDamageBeforeCoreAndDoesNotPayCoreScore() {
+        var state = stateWith(
+            bricks: [brick(id: 1, role: .normal, hitPoints: 1, signature: nil, anchored: true, armor: 2)]
+        )
+
+        let first = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+        XCTAssertEqual(state.bricks[0].armor, 1)
+        XCTAssertEqual(state.bricks[0].hitPoints, 1)
+        XCTAssertEqual(state.score, 0)
+        XCTAssertFalse(state.bricks[0].isRemoved)
+        XCTAssertTrue(first.events.contains(.armorChanged(id: 1, remainingArmor: 1)))
+
+        _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+        XCTAssertEqual(state.bricks[0].armor, 0)
+        XCTAssertEqual(state.bricks[0].hitPoints, 1)
+        XCTAssertEqual(state.score, 0)
+
+        let third = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+        XCTAssertTrue(state.bricks[0].isRemoved)
+        XCTAssertTrue(third.events.contains { event in
+            if case .brickRemoved(id: 1, cause: .direct, points: _) = event { return true }
+            return false
+        })
+    }
+
+    func testLightningTargetsNearestPositiveOnlyWithoutRecursionAndAddsOneWaveCombo() {
+        let carrier = brick(
+            id: 1,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            item: .lightning,
+            center: ShotVector(x: 195, y: 300)
+        )
+        let negative = brick(
+            id: 2,
+            role: .negative,
+            hitPoints: Int.max,
+            signature: nil,
+            anchored: true,
+            center: ShotVector(x: 198, y: 300)
+        )
+        let otherCarrier = brick(
+            id: 3,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            item: .flame,
+            center: ShotVector(x: 201, y: 300)
+        )
+        let nearest = brick(
+            id: 4,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            center: ShotVector(x: 215, y: 300)
+        )
+        let farther = brick(
+            id: 5,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            center: ShotVector(x: 255, y: 300)
+        )
+        var state = stateWith(bricks: [carrier, negative, otherCarrier, nearest, farther])
+
+        let outcome = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+        XCTAssertEqual(state.attackItems.levels.lightning, 1)
+        XCTAssertEqual(state.attackItems.levels.flame, 0)
+        XCTAssertEqual(state.attackItems.totalCollected, 1)
+        XCTAssertFalse(state.bricks[1].isRemoved)
+        XCTAssertEqual(state.bricks[1].penaltyHits, 0)
+        XCTAssertFalse(state.bricks[2].isRemoved)
+        XCTAssertTrue(state.bricks[3].isRemoved)
+        XCTAssertFalse(state.bricks[4].isRemoved)
+        XCTAssertEqual(state.combo, 2)
+        XCTAssertTrue(outcome.events.contains(.itemCollected(kind: .lightning, level: 1, carrierID: 1)))
+        XCTAssertTrue(outcome.events.contains(.brickRemoved(id: 4, cause: .attackItem(.lightning), points: 60)))
+
+        let directIndex = outcome.events.firstIndex { event in
+            if case .brickRemoved(id: 1, cause: .direct, points: _) = event { return true }
+            return false
+        }
+        let collectIndex = outcome.events.firstIndex(of: .itemCollected(kind: .lightning, level: 1, carrierID: 1))
+        let waveIndex = outcome.events.firstIndex(of: .brickRemoved(id: 4, cause: .attackItem(.lightning), points: 60))
+        XCTAssertNotNil(directIndex)
+        XCTAssertNotNil(collectIndex)
+        XCTAssertNotNil(waveIndex)
+        XCTAssertLessThan(directIndex!, collectIndex!)
+        XCTAssertLessThan(collectIndex!, waveIndex!)
+    }
+
+    func testLightningTargetCountScalesOneTwoThree() {
+        for expectedLevel in 1...3 {
+            var bricks = [
+                brick(
+                    id: 1,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    item: .lightning,
+                    center: ShotVector(x: 195, y: 300)
+                )
+            ]
+            for offset in 1...4 {
+                bricks.append(
+                    brick(
+                        id: offset + 1,
+                        role: .normal,
+                        hitPoints: 1,
+                        signature: nil,
+                        anchored: true,
+                        center: ShotVector(x: 195 + Double(offset * 20), y: 300)
+                    )
+                )
+            }
+            var state = stateWith(bricks: bricks)
+            for _ in 1..<expectedLevel {
+                _ = state.attackItems.levels.levelUp(.lightning)
+            }
+
+            _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+            XCTAssertEqual(state.attackItems.levels.lightning, expectedLevel)
+            XCTAssertEqual(state.bricks.dropFirst().filter(\.isRemoved).count, expectedLevel)
+            XCTAssertEqual(state.combo, 2)
+        }
+    }
+
+    func testAttackWaveSupportCollapsePreservesLinkAndAwardsOnlyOneWaveCombo() {
+        let carrier = brick(
+            id: 1,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            item: .lightning,
+            center: ShotVector(x: 150, y: 300)
+        )
+        let support = brick(
+            id: 2,
+            role: .support,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            center: ShotVector(x: 170, y: 300)
+        )
+        let dependent = brick(
+            id: 3,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            supportIDs: [2],
+            center: ShotVector(x: 170, y: 340)
+        )
+        var state = stateWith(bricks: [carrier, support, dependent])
+        let existingLink = AttributeLinkState(
+            previousSignature: BrickSignature(color: .blue, pattern: .grid, mark: .star),
+            colorCount: 3,
+            patternCount: 2,
+            markCount: 1
+        )
+        state.link = existingLink
+
+        let outcome = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+        XCTAssertTrue(state.bricks[1].isRemoved)
+        XCTAssertTrue(state.bricks[2].isRemoved)
+        XCTAssertEqual(state.combo, 2)
+        XCTAssertEqual(state.link, existingLink)
+        XCTAssertTrue(
+            outcome.events.contains(
+                .brickRemoved(id: 3, cause: .unsupportedFall, points: 45)
+            )
+        )
+    }
+
+    func testFlameUsesBoundedRadiusAndTargetCountAtEachLevel() {
+        for expectedLevel in 1...3 {
+            var bricks = [
+                brick(
+                    id: 1,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    item: .flame,
+                    center: ShotVector(x: 195, y: 300)
+                )
+            ]
+            for offset in 1...8 {
+                bricks.append(
+                    brick(
+                        id: offset + 1,
+                        role: .normal,
+                        hitPoints: 1,
+                        signature: nil,
+                        anchored: true,
+                        center: ShotVector(x: 195 + Double(offset * 10), y: 300)
+                    )
+                )
+            }
+            var state = stateWith(bricks: bricks)
+            for _ in 1..<expectedLevel {
+                _ = state.attackItems.levels.levelUp(.flame)
+            }
+
+            _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+            let expectedRemoved = [3, 5, 7][expectedLevel - 1]
+            XCTAssertEqual(state.attackItems.levels.flame, expectedLevel)
+            XCTAssertEqual(state.bricks.dropFirst().filter(\.isRemoved).count, expectedRemoved)
+            XCTAssertEqual(state.combo, 2)
+        }
+    }
+
+    func testWindDamagesOnlyBoundedPositiveTargetsAboveCarrierAndUsesArmorFirst() {
+        let carrier = brick(
+            id: 1,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            item: .wind,
+            center: ShotVector(x: 195, y: 300)
+        )
+        var targets: [ShotBrick] = []
+        for offset in 1...5 {
+            targets.append(
+                brick(
+                    id: offset + 1,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    armor: offset == 1 ? 1 : 0,
+                    center: ShotVector(x: 195, y: 300 + Double(offset * 10))
+                )
+            )
+        }
+        targets.append(
+            brick(
+                id: 9,
+                role: .normal,
+                hitPoints: 1,
+                signature: nil,
+                anchored: true,
+                center: ShotVector(x: 195, y: 290)
+            )
+        )
+        var state = stateWith(bricks: [carrier] + targets)
+        _ = state.attackItems.levels.levelUp(.wind)
+        _ = state.attackItems.levels.levelUp(.wind)
+
+        let outcome = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+        XCTAssertEqual(state.attackItems.levels.wind, 3)
+        XCTAssertEqual(state.bricks[1].armor, 0)
+        XCTAssertFalse(state.bricks[1].isRemoved)
+        XCTAssertTrue(state.bricks[2].isRemoved)
+        XCTAssertTrue(state.bricks[3].isRemoved)
+        XCTAssertTrue(state.bricks[4].isRemoved)
+        XCTAssertFalse(state.bricks[5].isRemoved)
+        XCTAssertFalse(state.bricks[6].isRemoved)
+        XCTAssertTrue(outcome.events.contains(.armorChanged(id: 2, remainingArmor: 0)))
+    }
+
+    func testWindTargetCountScalesTwoThreeFour() {
+        for expectedLevel in 1...3 {
+            var bricks = [
+                brick(
+                    id: 1,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    item: .wind,
+                    center: ShotVector(x: 195, y: 300)
+                )
+            ]
+            for offset in 1...5 {
+                bricks.append(
+                    brick(
+                        id: offset + 1,
+                        role: .normal,
+                        hitPoints: 1,
+                        signature: nil,
+                        anchored: true,
+                        center: ShotVector(x: 195, y: 300 + Double(offset * 10))
+                    )
+                )
+            }
+            var state = stateWith(bricks: bricks)
+            for _ in 1..<expectedLevel {
+                _ = state.attackItems.levels.levelUp(.wind)
+            }
+
+            _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+            XCTAssertEqual(state.attackItems.levels.wind, expectedLevel)
+            XCTAssertEqual(state.bricks.dropFirst().filter(\.isRemoved).count, expectedLevel + 1)
+            XCTAssertEqual(state.combo, 2)
+        }
+    }
+
+    func testPerKindLevelCapsAtThreeAndItemOnlyRemovalNeverCollectsAnotherCarrier() {
+        var carriers: [ShotBrick] = []
+        for id in 1...4 {
+            carriers.append(
+                brick(
+                    id: id,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    item: .lightning,
+                    center: ShotVector(x: 150 + Double(id * 10), y: 300)
+                )
+            )
+        }
+        var state = stateWith(bricks: carriers)
+
+        for id in 1...4 {
+            _ = GameRules.resolveDirectBrickContact(state: &state, brickID: id)
+        }
+
+        XCTAssertEqual(state.attackItems.levels.lightning, 3)
+        XCTAssertEqual(state.attackItems.totalCollected, 4)
+        XCTAssertEqual(state.attackItems.levels.flame, 0)
+    }
+
+    func testPierceAddsLevelChargesConsumesOnPositiveAndNeverOnNegative() {
+        let carrier = brick(
+            id: 1,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            item: .pierce
+        )
+        let positive = brick(id: 2, role: .normal, hitPoints: 1, signature: nil, anchored: true)
+        let negative = brick(id: 3, role: .negative, hitPoints: Int.max, signature: nil, anchored: true)
+        var state = stateWith(bricks: [carrier, positive, negative])
+
+        _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+        XCTAssertEqual(state.attackItems.levels.pierce, 1)
+        XCTAssertEqual(state.attackItems.pierceCharges, 1)
+
+        let pierced = GameRules.resolveDirectBrickContact(state: &state, brickID: 2)
+        XCTAssertFalse(pierced.shouldReflect)
+        XCTAssertEqual(state.attackItems.pierceCharges, 0)
+        XCTAssertTrue(pierced.events.contains(.pierceChargesChanged(0)))
+
+        state.attackItems.pierceCharges = 1
+        state.score = 500
+        let negativeHit = GameRules.resolveDirectBrickContact(state: &state, brickID: 3)
+        XCTAssertTrue(negativeHit.shouldReflect)
+        XCTAssertEqual(state.attackItems.pierceCharges, 1)
+        XCTAssertFalse(state.bricks[2].isRemoved)
+    }
+
+    func testPierceChargeAwardsScaleOneTwoThreeAtEachLevel() {
+        for expectedLevel in 1...3 {
+            let carrier = brick(
+                id: 1,
+                role: .normal,
+                hitPoints: 1,
+                signature: nil,
+                anchored: true,
+                item: .pierce
+            )
+            var state = stateWith(bricks: [carrier])
+            for _ in 1..<expectedLevel {
+                _ = state.attackItems.levels.levelUp(.pierce)
+            }
+
+            let outcome = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+            XCTAssertEqual(state.attackItems.levels.pierce, expectedLevel)
+            XCTAssertEqual(state.attackItems.pierceCharges, expectedLevel)
+            XCTAssertTrue(outcome.events.contains(.pierceChargesChanged(expectedLevel)))
+        }
+    }
+
+    func testShockwaveAndUnsupportedFallDoNotCollectCarrierItems() {
+        var shockwaveState = stateWith(
+            bricks: [
+                brick(
+                    id: 1,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    center: ShotVector(x: 195, y: 300)
+                ),
+                brick(
+                    id: 2,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    item: .flame,
+                    center: ShotVector(x: 215, y: 300)
+                )
+            ]
+        )
+        shockwaveState.powerTicks = 100
+        let shockwave = GameRules.resolveDirectBrickContact(state: &shockwaveState, brickID: 1)
+        XCTAssertTrue(shockwaveState.bricks[1].isRemoved)
+        XCTAssertEqual(shockwaveState.attackItems.totalCollected, 0)
+        XCTAssertFalse(shockwave.events.contains { event in
+            if case .itemCollected = event { return true }
+            return false
+        })
+
+        let removedSupport = brick(
+            id: 10,
+            role: .support,
+            hitPoints: 0,
+            signature: nil,
+            anchored: true,
+            removed: true
+        )
+        let fallingCarrier = brick(
+            id: 11,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            supportIDs: [10],
+            item: .wind
+        )
+        var fallState = stateWith(bricks: [removedSupport, fallingCarrier])
+        let fallEvents = GameRules.collapseUnsupported(state: &fallState)
+        XCTAssertTrue(fallState.bricks[1].isRemoved)
+        XCTAssertEqual(fallState.attackItems.totalCollected, 0)
+        XCTAssertFalse(fallEvents.contains { event in
+            if case .itemCollected = event { return true }
+            return false
+        })
+    }
+
+    func testChecksumCoversArmorCarrierLevelsAndPierceCharges() {
+        let baseline = GameRules.initialReturnShotState(seed: 99)
+        let baselineChecksum = GameRules.checksum(baseline)
+
+        var armorChanged = baseline
+        armorChanged.bricks[0].armor += 1
+        XCTAssertNotEqual(GameRules.checksum(armorChanged), baselineChecksum)
+
+        var carrierChanged = baseline
+        carrierChanged.bricks[0].embeddedItem = .flame
+        XCTAssertNotEqual(GameRules.checksum(carrierChanged), baselineChecksum)
+
+        var levelChanged = baseline
+        _ = levelChanged.attackItems.levels.levelUp(.wind)
+        XCTAssertNotEqual(GameRules.checksum(levelChanged), baselineChecksum)
+
+        var chargeChanged = baseline
+        chargeChanged.attackItems.pierceCharges = 2
+        XCTAssertNotEqual(GameRules.checksum(chargeChanged), baselineChecksum)
+    }
+
     private func simulatedChecksum(framesPerSecond: Int, seconds: Int) -> UInt64 {
         var state = GameRules.initialReturnShotState(seed: 424_242)
         let ticksPerFrame = GameRules.tickRate / framesPerSecond
@@ -281,6 +776,8 @@ final class GameRulesTests: XCTestCase {
         supportIDs: [Int] = [],
         anchored: Bool = false,
         removed: Bool = false,
+        item: AttackItemKind? = nil,
+        armor: Int = 0,
         center: ShotVector = ShotVector(x: 195, y: 300)
     ) -> ShotBrick {
         let maximumHitPoints: Int = switch role {
@@ -298,6 +795,9 @@ final class GameRulesTests: XCTestCase {
             hitPoints: hitPoints,
             supportIDs: supportIDs,
             anchored: anchored,
+            embeddedItem: item,
+            maximumArmor: armor,
+            armor: armor,
             isRemoved: removed
         )
     }

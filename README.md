@@ -7,13 +7,16 @@
 > 실제 사용자 재미·D1/D7·한국 CPI/LTV·차트 진입 가능성은 아직 검증되지 않았습니다.
 
 ![Precision Neon 게임 화면](docs/screenshots/return-shot-precision-game.png)
-![iPhone SE 게임 화면](docs/screenshots/return-shot-se-game.png)
+![스킬 코어가 들어 있는 벽돌](docs/screenshots/return-shot-skill-core-game.png)
+![iPhone SE 스킬 코어 화면](docs/screenshots/return-shot-skill-core-se.png)
 
 ## 지금 플레이할 수 있는 것
 
 - 접촉 위치와 패들 이동 속도로 다음 반사각을 만드는 지속 드래그
 - 점수·높이·콤보·개인 최고 기록 추격과 동일 seed 재도전
 - 색·무늬·마크를 독립적으로 잇는 5-LINK, 6초 `공명 폭주`
+- 구조마다 한 벽돌에 숨은 번개·화염·바람·관통 코어와 종류별 L1~L3 성장
+- 구조 4부터 1칸, 구조 7부터 최대 2칸까지 올라가는 가시적 방어막
 - 세 번 맞혀야 깨지는 프리즘 보너스 벽돌
 - 직접 맞히면 `−250`, 지지점을 끊어 떨어뜨리면 `+120`인 마이너스 벽돌
 - 120Hz 고정 tick, swept collision, 결정론적 support graph collapse
@@ -41,7 +44,7 @@ xcodebuild -project AppStoreGame.xcodeproj -scheme AppStoreGame \
   CODE_SIGNING_ALLOWED=NO test
 ```
 
-2026-08-18 로컬 증거는 SwiftPM 12/12, Xcode 규칙 12/12, UI 흐름 1/1입니다. UI 흐름은 홈→시작→드래그→일시정지→재개→결과→동일 seed 재도전을 포함합니다. 번들 ID는 `com.keestory.returnshot`이지만, 실기기 배포 전 Apple Developer 소유권 확인과 Signing Team 지정이 필요합니다.
+2026-08-18 로컬 증거는 SwiftPM 25/25, Xcode 규칙 25/25, UI 흐름 1/1입니다. UI 흐름은 홈→시작→드래그→스킬 HUD 확인→일시정지→재개→결과→동일 seed 재도전을 포함합니다. 번들 ID는 `com.keestory.returnshot`이지만, 실기기 배포 전 Apple Developer 소유권 확인과 Signing Team 지정이 필요합니다.
 
 ## A/B와 디자인
 
@@ -49,7 +52,7 @@ xcodebuild -project AppStoreGame.xcodeproj -scheme AppStoreGame \
 - challenger B `Impact Pop`: 보너스 에너지는 강하지만 노란 연결망의 시각 부하가 큼
 - gameplay truth는 SpriteKit/SwiftUI 코드로 렌더하고 ImageGen 자산은 저대비 배경과 앱 아이콘에만 사용
 
-상세 화면 감사와 디자인 규칙은 [Visual Builder Report](docs/04-design/return-shot-visual-builder-report-2026-08-17.md), 권리·해시는 [Asset Provenance](docs/ASSET_PROVENANCE.md)에 있습니다.
+상세 화면 감사와 디자인 규칙은 [Visual Builder Report](docs/04-design/return-shot-visual-builder-report-2026-08-17.md), 스킬 화면 재감사는 [Skill Core Visual Audit](docs/04-design/skill-core-visual-audit-2026-08-18.md), 권리·해시는 [Asset Provenance](docs/ASSET_PROVENANCE.md)에 있습니다.
 
 ## 다음 Gate
 
@@ -62,7 +65,7 @@ xcodebuild -project AppStoreGame.xcodeproj -scheme AppStoreGame \
 ## Source of Truth
 
 - [제품 개발 멀티 에이전트 플레이북](docs/PRODUCT_DEVELOPMENT_MULTI_AGENT_PLAYBOOK_2026.md)
-- [Return Shot ProductSpec rev2](docs/product-specs/return-shot-chain.product-spec.md)
+- [Return Shot ProductSpec rev3](docs/product-specs/return-shot-chain.product-spec.md)
 - [Decision Log](docs/00-brief/decision-log.md)
 - [Architecture](docs/05-engineering/architecture.md)
 - [Test Plan](docs/06-quality/test-plan.md)

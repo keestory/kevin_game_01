@@ -84,3 +84,14 @@
 - 구현 검증: SwiftPM 12/12, Xcode unit 12/12, XCUITest 1/1. 자동 흐름은 홈→시작→드래그→일시정지→재개→결과→같은 seed 재도전이다. 모든 실제 지지선을 표시하고 공은 안내 band 밖의 top wall 아래에 제한한다.
 - 한계: 이 결정은 휴리스틱 시각 QA이며 사용자 A/B나 retention 증거가 아니다. `Revise-Go`로만 판정하고 실제 5명 mastery Gate 전 본개발·수익화·출시 승인을 금지한다.
 - 상세 보고: [Return Shot Visual Builder Report — 2026-08-17](../04-design/return-shot-visual-builder-report-2026-08-17.md).
+
+## D-012 — 네 공격을 단일 입력 스킬 코어로 제한
+
+- 결정: 번개·화염·바람·관통은 모두 구현하되 별도 버튼, 선택 모달, 영구 인벤토리, 네 공격의 상시 중첩은 만들지 않는다. 구조마다 일반 벽돌 한 개에 코어를 넣고 직접 파괴한 순간 해당 공격이 한 번 발동하며, 공격별 run 레벨만 Lv1~3으로 누적한다.
+- 사용자 근거: 오너가 공격 아이템을 벽돌 안에 배치하고 각 공격이 레벨에 따라 강화되며 구조 진행에 따라 방어력도 올라가는 방향을 명시했다.
+- 시장 근거: 2026-08-18 한국 무료 Games에는 `Royal Smash` #18과 `Block Blast` #14가 관측됐지만 직접군은 매출 Top 25에 없었다. `PunBall`, `Bricks Ball Crusher`는 스킬 성장 수요의 선행 사례인 동시에 과도한 시스템·HP·운영비 위험의 반증이다.
+- 에이전트 충돌: Market/Red Team은 4종 전체를 Stop하고 관통 1종만 시험하라고 권고했고, UX는 번개/화염 2종 단일 슬롯만 승인했다. Engineering은 별도 armor와 bounded deterministic wave라면 구현 가능하다고 판정했다.
+- Orchestrator 통합: 사용자의 명시 범위는 보존하되 네 공격을 동시에 지속시키지 않고 코어 파괴 시 1회 bounded wave로 축소한다. 방어력은 core HP가 아닌 별도 armor 0~2만 허용해 prism 3HP 계약과 무광고 해결 가능성을 지킨다.
+- 공정성: 같은 seed는 carrier·공격 종류·target order가 동일하다. shockwave·낙하·다른 공격으로 제거한 carrier는 획득되지 않고, 공격은 negative·carrier를 대상으로 삼거나 LINK·다른 코어를 발동하지 않는다.
+- Gate: ProductSpec rev3의 AC-13~17, 기존 결정론·시각·사용자 Gate를 모두 통과해야 한다. 실제 5명 테스트 전 판정은 `Revise-Go`이며 한국 무료 1위·retention·수익성은 `Unknown`이다.
+- Stop: 일반 벽돌 3회 초과 반복타, active-touch 60% 미만, 사용자 2/5 이상의 LINK/core 혼동, attack 재귀·negative 오판 1건, SE 화면 가림 또는 성능 P1이 발생하면 4종을 2종 이하로 축소한다.

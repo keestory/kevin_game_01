@@ -16,6 +16,7 @@ enum GameRules {
     static let maximumPaddleSpeed = 720.0
     static let powerDurationTicks = 6 * tickRate
     static let comboGraceDurationTicks = Int(1.6 * Double(tickRate))
+    private static let itemSeedSalt: UInt64 = 0xA771_ACED_17E5_4A11
 
     private enum CollisionKind: Equatable {
         case wall
@@ -47,6 +48,14 @@ enum GameRules {
         )
     }
 
+    static func stageArmor(segment: Int) -> Int {
+        switch max(0, segment) {
+        case 0...2: 0
+        case 3...5: 1
+        default: 2
+        }
+    }
+
     static func returnShotBricks(seed: UInt64, segment: Int) -> [ShotBrick] {
         let segmentSalt = UInt64(truncatingIfNeeded: segment) &* 0xD1B5_4A32_D192_ED03
         var rng = SeededRandom(seed: seed ^ segmentSalt)
@@ -58,6 +67,7 @@ enum GameRules {
         let spacingY = 52.0
 
         var bricks: [ShotBrick] = []
+        let armor = stageArmor(segment: segment)
         for row in 0..<rowCount {
             for column in 0..<columnCount {
                 let id = segment * 1_000 + row * 10 + column
@@ -120,10 +130,26 @@ enum GameRules {
                         maximumHitPoints: maximumHitPoints,
                         hitPoints: maximumHitPoints,
                         supportIDs: Array(Set(supportIDs)).sorted(),
-                        anchored: row == 0
+                        anchored: row == 0,
+                        embeddedItem: nil,
+                        maximumArmor: role == .negative ? 0 : armor,
+                        armor: role == .negative ? 0 : armor
                     )
                 )
             }
+        }
+
+        let carrierCandidates = bricks.indices.filter { bricks[$0].role == .normal }
+        if !carrierCandidates.isEmpty {
+            var itemRNG = SeededRandom(
+                seed: seed
+                    ^ itemSeedSalt
+                    ^ (UInt64(truncatingIfNeeded: segment) &* 0x94D0_49BB_1331_11EB)
+            )
+            let selected = carrierCandidates[itemRNG.int(in: 0...(carrierCandidates.count - 1))]
+            bricks[selected].embeddedItem = AttackItemKind(
+                rawValue: segment % AttackItemKind.allCases.count
+            )
         }
         return bricks.sorted { $0.id < $1.id }
     }
@@ -281,6 +307,8 @@ enum GameRules {
 
         var events: [ShotSimulationEvent] = []
         let role = state.bricks[index].role
+        let embeddedItem = state.bricks[index].embeddedItem
+        let sourceCenter = state.bricks[index].rect.center
         let firstEligibleContact = state.bricks[index].signature != nil
             && !state.bricks[index].eligibleContactRecorded
         var attributeMatchCount = 0
@@ -293,20 +321,35 @@ enum GameRules {
             }
         }
 
+        let usedPierce = state.attackItems.pierceCharges > 0
+        if usedPierce {
+            state.attackItems.pierceCharges -= 1
+            events.append(.pierceChargesChanged(state.attackItems.pierceCharges))
+        }
+
         let hitNumber = state.bricks[index].maximumHitPoints - state.bricks[index].hitPoints + 1
         let damage = state.isPowerActive && (role == .support || role == .prism) ? 2 : 1
-        state.bricks[index].hitPoints = max(0, state.bricks[index].hitPoints - damage)
+        let damageResult = applyArmorAndCoreDamage(
+            state: &state,
+            index: index,
+            amount: damage
+        )
+        events.append(contentsOf: damageResult.events)
 
         let contactPoints: Int
-        switch role {
-        case .normal:
+        if damageResult.coreDamage == 0 {
             contactPoints = 0
-        case .support:
-            contactPoints = 40
-        case .prism:
-            contactPoints = [80, 140, 240][min(2, max(0, hitNumber - 1))]
-        case .negative:
-            contactPoints = 0
+        } else {
+            switch role {
+            case .normal:
+                contactPoints = 0
+            case .support:
+                contactPoints = 40
+            case .prism:
+                contactPoints = [80, 140, 240][min(2, max(0, hitNumber - 1))]
+            case .negative:
+                contactPoints = 0
+            }
         }
         let directPoints = scoredDirectPoints(
             base: contactPoints,
@@ -314,10 +357,9 @@ enum GameRules {
             state: state
         )
         state.score += Int64(directPoints)
-        events.append(.brickHit(id: brickID, remainingHitPoints: state.bricks[index].hitPoints))
 
         var removedDirectly = false
-        if state.bricks[index].hitPoints == 0 {
+        if damageResult.coreDamage > 0, state.bricks[index].hitPoints == 0 {
             state.bricks[index].isRemoved = true
             removedDirectly = true
             let completionBase: Int
@@ -341,6 +383,8 @@ enum GameRules {
                 : "콤보 ×\(state.combo) · +\(completionPoints)"
             events.append(.brickRemoved(id: brickID, cause: .direct, points: completionPoints))
             events.append(contentsOf: collapseUnsupported(state: &state))
+        } else if damageResult.coreDamage == 0 {
+            state.feedback = "방어력 \(state.bricks[index].armor) 남음"
         } else if role == .prism {
             state.feedback = "프리즘 \(state.bricks[index].hitPoints)겹 남음"
         } else if role == .support {
@@ -351,11 +395,205 @@ enum GameRules {
             events.append(contentsOf: applyPowerShockwave(state: &state, around: brickID))
         }
 
-        let shouldReflect = !(state.isPowerActive && role == .normal && removedDirectly)
+        if removedDirectly, let embeddedItem {
+            events.append(
+                contentsOf: collectAndActivateItem(
+                    state: &state,
+                    kind: embeddedItem,
+                    carrierID: brickID,
+                    sourceCenter: sourceCenter
+                )
+            )
+        }
+
+        let shouldReflect = !usedPierce
+            && !(state.isPowerActive && role == .normal && removedDirectly)
         return (events, shouldReflect)
     }
 
-    static func collapseUnsupported(state: inout ReturnShotState) -> [ShotSimulationEvent] {
+    private static func applyArmorAndCoreDamage(
+        state: inout ReturnShotState,
+        index: Int,
+        amount: Int
+    ) -> (events: [ShotSimulationEvent], coreDamage: Int) {
+        guard amount > 0, state.bricks.indices.contains(index), !state.bricks[index].isRemoved else {
+            return ([], 0)
+        }
+
+        var events: [ShotSimulationEvent] = []
+        var remainingDamage = amount
+        if state.bricks[index].armor > 0 {
+            let absorbed = min(state.bricks[index].armor, remainingDamage)
+            state.bricks[index].armor -= absorbed
+            remainingDamage -= absorbed
+            events.append(
+                .armorChanged(
+                    id: state.bricks[index].id,
+                    remainingArmor: state.bricks[index].armor
+                )
+            )
+        }
+
+        let coreDamage = min(state.bricks[index].hitPoints, remainingDamage)
+        if coreDamage > 0 {
+            state.bricks[index].hitPoints -= coreDamage
+            events.append(
+                .brickHit(
+                    id: state.bricks[index].id,
+                    remainingHitPoints: state.bricks[index].hitPoints
+                )
+            )
+        }
+        return (events, coreDamage)
+    }
+
+    private static func collectAndActivateItem(
+        state: inout ReturnShotState,
+        kind: AttackItemKind,
+        carrierID: Int,
+        sourceCenter: ShotVector
+    ) -> [ShotSimulationEvent] {
+        let level = state.attackItems.levels.levelUp(kind)
+        state.attackItems.totalCollected += 1
+        state.attackItems.lastCollected = kind
+        state.feedback = "\(kind.name) 코어 LV\(level) 발동!"
+        var events: [ShotSimulationEvent] = [
+            .itemCollected(kind: kind, level: level, carrierID: carrierID)
+        ]
+
+        if kind == .pierce {
+            state.attackItems.pierceCharges += level
+            state.feedback = "관통 LV\(level) · \(state.attackItems.pierceCharges)회 충전"
+            events.append(.pierceChargesChanged(state.attackItems.pierceCharges))
+            return events
+        }
+
+        let targets = attackItemTargets(
+            state: state,
+            kind: kind,
+            level: level,
+            carrierID: carrierID,
+            sourceCenter: sourceCenter
+        )
+        events.append(
+            contentsOf: applyAttackItemWave(
+                state: &state,
+                kind: kind,
+                targetIndices: targets
+            )
+        )
+        return events
+    }
+
+    private static func attackItemTargets(
+        state: ReturnShotState,
+        kind: AttackItemKind,
+        level: Int,
+        carrierID: Int,
+        sourceCenter: ShotVector
+    ) -> [Int] {
+        let boundedLevel = min(3, max(1, level))
+        let candidates = state.bricks.indices.filter { index in
+            let brick = state.bricks[index]
+            return !brick.isRemoved
+                && brick.id != carrierID
+                && brick.role != .negative
+                && brick.embeddedItem == nil
+        }
+
+        switch kind {
+        case .lightning:
+            return candidates.sorted { lhs, rhs in
+                let left = squaredDistance(state.bricks[lhs].rect.center, sourceCenter)
+                let right = squaredDistance(state.bricks[rhs].rect.center, sourceCenter)
+                if abs(left - right) > 0.000_001 { return left < right }
+                return state.bricks[lhs].id < state.bricks[rhs].id
+            }
+            .prefix(boundedLevel)
+            .map { $0 }
+
+        case .flame:
+            let radii = [72.0, 92.0, 112.0]
+            let limits = [3, 5, 7]
+            let radiusSquared = radii[boundedLevel - 1] * radii[boundedLevel - 1]
+            return candidates.filter { index in
+                squaredDistance(state.bricks[index].rect.center, sourceCenter) <= radiusSquared
+            }
+            .sorted { lhs, rhs in
+                let left = squaredDistance(state.bricks[lhs].rect.center, sourceCenter)
+                let right = squaredDistance(state.bricks[rhs].rect.center, sourceCenter)
+                if abs(left - right) > 0.000_001 { return left < right }
+                return state.bricks[lhs].id < state.bricks[rhs].id
+            }
+            .prefix(limits[boundedLevel - 1])
+            .map { $0 }
+
+        case .wind:
+            return candidates.filter { state.bricks[$0].rect.center.y > sourceCenter.y }
+                .sorted { lhs, rhs in
+                    let left = state.bricks[lhs]
+                    let right = state.bricks[rhs]
+                    if abs(left.rect.center.y - right.rect.center.y) > 0.000_001 {
+                        return left.rect.center.y < right.rect.center.y
+                    }
+                    let leftX = abs(left.rect.center.x - sourceCenter.x)
+                    let rightX = abs(right.rect.center.x - sourceCenter.x)
+                    if abs(leftX - rightX) > 0.000_001 { return leftX < rightX }
+                    return left.id < right.id
+                }
+                .prefix(boundedLevel + 1)
+                .map { $0 }
+
+        case .pierce:
+            return []
+        }
+    }
+
+    private static func applyAttackItemWave(
+        state: inout ReturnShotState,
+        kind: AttackItemKind,
+        targetIndices: [Int]
+    ) -> [ShotSimulationEvent] {
+        var events: [ShotSimulationEvent] = []
+        var removedAny = false
+
+        for index in targetIndices {
+            guard state.bricks.indices.contains(index), !state.bricks[index].isRemoved else { continue }
+            let damageResult = applyArmorAndCoreDamage(state: &state, index: index, amount: 1)
+            events.append(contentsOf: damageResult.events)
+            guard damageResult.coreDamage > 0, state.bricks[index].hitPoints == 0 else { continue }
+
+            state.bricks[index].isRemoved = true
+            state.score += 60
+            state.height += 1
+            state.destroyedBrickCount += 1
+            removedAny = true
+            events.append(
+                .brickRemoved(
+                    id: state.bricks[index].id,
+                    cause: .attackItem(kind),
+                    points: 60
+                )
+            )
+        }
+
+        if removedAny {
+            advanceCombo(state: &state, events: &events)
+            events.append(contentsOf: collapseUnsupported(state: &state, awardsCombo: false))
+        }
+        return events
+    }
+
+    private static func squaredDistance(_ lhs: ShotVector, _ rhs: ShotVector) -> Double {
+        let dx = lhs.x - rhs.x
+        let dy = lhs.y - rhs.y
+        return dx * dx + dy * dy
+    }
+
+    static func collapseUnsupported(
+        state: inout ReturnShotState,
+        awardsCombo: Bool = true
+    ) -> [ShotSimulationEvent] {
         var events: [ShotSimulationEvent] = []
         var fellAnyPositive = false
 
@@ -404,7 +642,7 @@ enum GameRules {
             }
         }
 
-        if fellAnyPositive {
+        if fellAnyPositive, awardsCombo {
             advanceCombo(state: &state, events: &events)
         }
         return events
@@ -416,23 +654,93 @@ enum GameRules {
             hash ^= value
             hash &*= 0x1000_0000_01b3
         }
+        func mixInt(_ value: Int) {
+            mix(UInt64(bitPattern: Int64(value)))
+        }
+        func mixDouble(_ value: Double) {
+            mix(UInt64(bitPattern: Int64((value * 1_000).rounded())))
+        }
+
+        mix(state.seed)
         mix(UInt64(state.tick))
-        mix(UInt64(bitPattern: Int64((state.ball.position.x * 1_000).rounded())))
-        mix(UInt64(bitPattern: Int64((state.ball.position.y * 1_000).rounded())))
-        mix(UInt64(bitPattern: Int64((state.ball.velocity.x * 1_000).rounded())))
-        mix(UInt64(bitPattern: Int64((state.ball.velocity.y * 1_000).rounded())))
+        mixDouble(state.ball.position.x)
+        mixDouble(state.ball.position.y)
+        mixDouble(state.ball.velocity.x)
+        mixDouble(state.ball.velocity.y)
+        mixDouble(state.ball.radius)
+        mixDouble(state.paddleX)
+        mixDouble(state.paddleTargetX)
+        mixDouble(state.paddleVelocity)
         mix(UInt64(bitPattern: state.score))
-        mix(UInt64(state.height))
-        mix(UInt64(state.combo))
-        mix(UInt64(state.link.colorCount))
-        mix(UInt64(state.link.patternCount))
-        mix(UInt64(state.link.markCount))
-        mix(UInt64(state.powerTicks))
+        mixInt(state.height)
+        mixInt(state.combo)
+        mixInt(state.maxCombo)
+        mixInt(state.comboGraceTicks)
+        if let signature = state.link.previousSignature {
+            mix(UInt64(signature.color.rawValue))
+            mix(UInt64(signature.pattern.rawValue))
+            mix(UInt64(signature.mark.rawValue))
+        } else {
+            mix(UInt64.max)
+        }
+        mixInt(state.link.colorCount)
+        mixInt(state.link.patternCount)
+        mixInt(state.link.markCount)
+        mixInt(state.maxLink)
+        mixInt(state.powerTicks)
+        mixInt(state.powerActivations)
+        mixInt(state.returnShotTicks)
+        mixInt(state.segment)
+        mixInt(state.destroyedBrickCount)
+        mixInt(state.attackItems.levels.lightning)
+        mixInt(state.attackItems.levels.flame)
+        mixInt(state.attackItems.levels.wind)
+        mixInt(state.attackItems.levels.pierce)
+        mixInt(state.attackItems.pierceCharges)
+        mixInt(state.attackItems.totalCollected)
+        mix(state.attackItems.lastCollected.map { UInt64($0.rawValue) } ?? UInt64.max)
+        let phaseValue: UInt64 = switch state.phase {
+        case .ready: 0
+        case .playing: 1
+        case .paused: 2
+        case .finished: 3
+        }
+        mix(phaseValue)
+
         for brick in state.bricks.sorted(by: { $0.id < $1.id }) {
-            mix(UInt64(brick.id))
-            mix(UInt64(brick.hitPoints == Int.max ? UInt32.max : UInt32(max(0, brick.hitPoints))))
+            mixInt(brick.id)
+            mixDouble(brick.rect.center.x)
+            mixDouble(brick.rect.center.y)
+            mixDouble(brick.rect.width)
+            mixDouble(brick.rect.height)
+            let roleValue: UInt64 = switch brick.role {
+            case .normal: 0
+            case .support: 1
+            case .prism: 2
+            case .negative: 3
+            }
+            mix(roleValue)
+            if let signature = brick.signature {
+                mix(UInt64(signature.color.rawValue))
+                mix(UInt64(signature.pattern.rawValue))
+                mix(UInt64(signature.mark.rawValue))
+            } else {
+                mix(UInt64.max)
+            }
+            mix(brick.maximumHitPoints == Int.max ? UInt64.max : UInt64(brick.maximumHitPoints))
+            mix(brick.hitPoints == Int.max ? UInt64.max : UInt64(max(0, brick.hitPoints)))
+            mixInt(brick.maximumArmor)
+            mixInt(brick.armor)
+            mix(brick.embeddedItem.map { UInt64($0.rawValue) } ?? UInt64.max)
+            mix(brick.anchored ? 1 : 0)
             mix(brick.isRemoved ? 1 : 0)
-            mix(UInt64(brick.penaltyHits))
+            mixInt(brick.penaltyHits)
+            mixInt(brick.lastPenaltyTick)
+            mix(brick.eligibleContactRecorded ? 1 : 0)
+            mixInt(brick.supportIDs.count)
+            for supportID in brick.supportIDs.sorted() {
+                mixInt(supportID)
+            }
         }
         return hash
     }
@@ -610,14 +918,9 @@ enum GameRules {
         var events: [ShotSimulationEvent] = []
         for index in candidates {
             guard !state.bricks[index].isRemoved else { continue }
-            state.bricks[index].hitPoints = max(0, state.bricks[index].hitPoints - 1)
-            events.append(
-                .brickHit(
-                    id: state.bricks[index].id,
-                    remainingHitPoints: state.bricks[index].hitPoints
-                )
-            )
-            if state.bricks[index].hitPoints == 0 {
+            let damageResult = applyArmorAndCoreDamage(state: &state, index: index, amount: 1)
+            events.append(contentsOf: damageResult.events)
+            if damageResult.coreDamage > 0, state.bricks[index].hitPoints == 0 {
                 state.bricks[index].isRemoved = true
                 state.score += 60
                 state.height += 1

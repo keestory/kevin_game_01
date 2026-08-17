@@ -27,6 +27,7 @@ final class GameScene: SKScene {
 
     private let backgroundRoot = SKNode()
     private let structureRoot = SKNode()
+    private let attackEffectsRoot = SKNode()
     private let effectsRoot = SKNode()
     private let ballNode = SKShapeNode(circleOfRadius: 10)
     private let ballCoreNode = SKShapeNode(circleOfRadius: 4)
@@ -244,6 +245,14 @@ final class GameScene: SKScene {
             case .cleanDrop:
                 showFloatingText("위험 제거 +120", color: UIColor(hex: 0x49E2B4))
                 gameDelegate?.gameScene(self, didEmit: .cleanDrop)
+            case .armorChanged(let id, _):
+                updateBrickAppearance(id: id)
+                animateBrickHit(id: id)
+            case .itemCollected(let kind, let level, let carrierID):
+                showAttackBurst(kind: kind, level: level, sourceID: carrierID)
+                gameDelegate?.gameScene(self, didEmit: .itemCollected(kind))
+            case .pierceChargesChanged:
+                break
             case .segmentAdvanced:
                 rebuildStructure(animated: true)
             case .missed:
@@ -267,6 +276,11 @@ final class GameScene: SKScene {
         snapshot.feedback = state.feedback
         snapshot.isReturnShot = state.returnShotTicks > 0
         snapshot.destroyedBrickCount = state.destroyedBrickCount
+        snapshot.attackItemLevels = state.attackItems.levels
+        snapshot.pierceCharges = state.attackItems.pierceCharges
+        snapshot.totalItemsCollected = state.attackItems.totalCollected
+        snapshot.lastCollectedItem = state.attackItems.lastCollected
+        snapshot.stageArmor = GameRules.stageArmor(segment: state.segment)
         snapshot.bestScore = storedBestScore
         snapshot.bestHeight = storedBestHeight
     }
@@ -288,7 +302,9 @@ final class GameScene: SKScene {
             destroyedBrickCount: state.destroyedBrickCount,
             dailySeed: seed,
             previousBestScore: storedBestScore,
-            previousBestHeight: storedBestHeight
+            previousBestHeight: storedBestHeight,
+            attackItemLevels: state.attackItems.levels,
+            totalItemsCollected: state.attackItems.totalCollected
         )
         gameDelegate?.gameScene(self, didEmit: .finished(result))
     }
@@ -388,6 +404,9 @@ final class GameScene: SKScene {
     private func buildGameplayNodes() {
         structureRoot.zPosition = 0
         addChild(structureRoot)
+
+        attackEffectsRoot.zPosition = 14
+        addChild(attackEffectsRoot)
 
         effectsRoot.zPosition = 30
         addChild(effectsRoot)
@@ -559,6 +578,49 @@ final class GameScene: SKScene {
             }
         }
 
+        if brick.maximumArmor > 0 {
+            for armorIndex in 0..<brick.maximumArmor {
+                let plate = SKShapeNode(
+                    rectOf: CGSize(width: 12, height: 5),
+                    cornerRadius: 2
+                )
+                plate.fillColor = armorIndex < brick.armor
+                    ? UIColor(hex: 0xA9E7FF)
+                    : UIColor.white.withAlphaComponent(0.12)
+                plate.strokeColor = armorIndex < brick.armor
+                    ? UIColor.white.withAlphaComponent(0.70)
+                    : .clear
+                plate.lineWidth = 0.8
+                plate.position = CGPoint(
+                    x: CGFloat(-brick.rect.width / 2 + 8 + Double(armorIndex) * 14),
+                    y: CGFloat(brick.rect.height / 2 - 6)
+                )
+                root.addChild(plate)
+            }
+        }
+
+        if let item = brick.embeddedItem {
+            let badge = SKShapeNode(circleOfRadius: 12)
+            badge.fillColor = UIColor(hex: 0x071225).withAlphaComponent(0.96)
+            badge.strokeColor = UIColor(hex: item.tintHex)
+            badge.lineWidth = 2.5
+            badge.glowWidth = visualVariant == .impactPop ? 5 : 3
+            badge.position = CGPoint(
+                x: CGFloat(brick.rect.width / 2 - 12),
+                y: CGFloat(brick.rect.height / 2 - 12)
+            )
+            badge.zPosition = 8
+            root.addChild(badge)
+
+            let itemLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            itemLabel.text = item.badge
+            itemLabel.fontSize = item == .flame || item == .wind ? 11 : 14
+            itemLabel.fontColor = .white
+            itemLabel.verticalAlignmentMode = .center
+            itemLabel.position.y = -0.5
+            badge.addChild(itemLabel)
+        }
+
         if brick.role == .negative {
             let warning = SKLabelNode(fontNamed: "AvenirNext-Bold")
             warning.text = "직접 −250"
@@ -586,7 +648,7 @@ final class GameScene: SKScene {
 
         switch pattern {
         case .stripe:
-            for offset in [-9.0, 0.0, 9.0] {
+            for offset: CGFloat in [-9, 0, 9] {
                 addLine(
                     from: CGPoint(x: -halfWidth, y: CGFloat(offset) - 4),
                     to: CGPoint(x: halfWidth, y: CGFloat(offset) + 4)
@@ -623,10 +685,15 @@ final class GameScene: SKScene {
         paddleGlowNode.position = paddleNode.position
 
         let powerActive = state.isPowerActive
+        let pierceReady = state.attackItems.pierceCharges > 0
         ballNode.fillColor = powerActive ? UIColor(hex: 0xFFD84D) : .white
-        ballNode.strokeColor = powerActive ? UIColor(hex: 0x49E2B4) : UIColor(hex: 0x071225)
+        ballNode.strokeColor = powerActive
+            ? UIColor(hex: 0x49E2B4)
+            : UIColor(hex: pierceReady ? AttackItemKind.pierce.tintHex : 0x071225)
         ballNode.glowWidth = powerActive ? 13 : 5
-        ballCoreNode.fillColor = powerActive ? UIColor(hex: 0xFF6B72) : UIColor(hex: 0x49E2B4)
+        ballCoreNode.fillColor = powerActive
+            ? UIColor(hex: 0xFF6B72)
+            : UIColor(hex: pierceReady ? AttackItemKind.pierce.tintHex : 0x49E2B4)
         let ballScale = powerActive ? 1.24 : 1
         ballNode.setScale(ballScale)
         ballCoreNode.setScale(ballScale)
@@ -727,8 +794,100 @@ final class GameScene: SKScene {
                 .fadeOut(withDuration: 0.34),
                 .rotate(byAngle: 0.42, duration: 0.34)
             ])
+        case .attackItem(let kind):
+            node.run(.colorize(with: UIColor(hex: kind.tintHex), colorBlendFactor: 0.8, duration: 0.08))
+            action = .group([
+                .scale(to: 1.50, duration: 0.18),
+                .fadeOut(withDuration: 0.18)
+            ])
         }
         node.run(.sequence([action, .removeFromParent()]))
+    }
+
+    private func showAttackBurst(kind: AttackItemKind, level: Int, sourceID: Int) {
+        let color = UIColor(hex: kind.tintHex)
+        let source = state.bricks.first(where: { $0.id == sourceID })?.rect.center
+            ?? ShotVector(x: GameRules.fieldWidth / 2, y: 360)
+        let center = CGPoint(x: CGFloat(source.x), y: CGFloat(source.y))
+
+        let ring = SKShapeNode(circleOfRadius: 22)
+        ring.position = center
+        ring.strokeColor = color
+        ring.fillColor = .clear
+        ring.lineWidth = 4
+        ring.glowWidth = reduceMotion ? 0 : 5
+        ring.zPosition = 0
+        attackEffectsRoot.addChild(ring)
+        addAttackCue(kind: kind, color: color, to: ring)
+
+        let glyph = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        glyph.text = kind.badge
+        glyph.fontSize = 18
+        glyph.fontColor = .white
+        glyph.verticalAlignmentMode = .center
+        ring.addChild(glyph)
+
+        if reduceMotion {
+            ring.run(.sequence([.wait(forDuration: 0.18), .removeFromParent()]))
+        } else {
+            ring.run(
+                .sequence([
+                    .group([
+                        .scale(to: 2.6, duration: 0.32),
+                        .fadeOut(withDuration: 0.32)
+                    ]),
+                    .removeFromParent()
+                ])
+            )
+        }
+    }
+
+    private func addAttackCue(kind: AttackItemKind, color: UIColor, to root: SKNode) {
+        let path = CGMutablePath()
+        switch kind {
+        case .lightning:
+            path.move(to: CGPoint(x: -6, y: 16))
+            path.addLine(to: CGPoint(x: 3, y: 5))
+            path.addLine(to: CGPoint(x: -2, y: 5))
+            path.addLine(to: CGPoint(x: 7, y: -16))
+        case .flame:
+            path.move(to: CGPoint(x: 0, y: 17))
+            path.addCurve(
+                to: CGPoint(x: 0, y: -16),
+                control1: CGPoint(x: 17, y: 5),
+                control2: CGPoint(x: 10, y: -13)
+            )
+            path.addCurve(
+                to: CGPoint(x: 0, y: 17),
+                control1: CGPoint(x: -14, y: -10),
+                control2: CGPoint(x: -10, y: 5)
+            )
+        case .wind:
+            for offset in [-9.0, 0.0, 9.0] {
+                path.move(to: CGPoint(x: -15, y: offset - 3))
+                path.addQuadCurve(
+                    to: CGPoint(x: 15, y: offset + 3),
+                    control: CGPoint(x: 0, y: offset + 9)
+                )
+            }
+        case .pierce:
+            for offset: CGFloat in [-5, 5] {
+                path.move(to: CGPoint(x: -15 + offset, y: 0))
+                path.addLine(to: CGPoint(x: 9 + offset, y: 0))
+                path.move(to: CGPoint(x: 2 + offset, y: 8))
+                path.addLine(to: CGPoint(x: 10 + offset, y: 0))
+                path.addLine(to: CGPoint(x: 2 + offset, y: -8))
+            }
+        }
+
+        let cue = SKShapeNode(path: path)
+        cue.strokeColor = color
+        cue.fillColor = .clear
+        cue.lineWidth = 3
+        cue.lineCap = .round
+        cue.lineJoin = .round
+        cue.glowWidth = reduceMotion ? 0 : 2
+        root.addChild(cue)
     }
 
     private func showFloatingText(_ text: String, color: UIColor) {

@@ -101,6 +101,84 @@ enum ShotBrickRole: String, Codable, Equatable {
     case negative
 }
 
+enum AttackItemKind: Int, CaseIterable, Codable, Equatable, Hashable {
+    case lightning
+    case flame
+    case wind
+    case pierce
+
+    var name: String {
+        switch self {
+        case .lightning: "번개"
+        case .flame: "화염"
+        case .wind: "바람"
+        case .pierce: "관통"
+        }
+    }
+
+    var badge: String {
+        switch self {
+        case .lightning: "ϟ"
+        case .flame: "火"
+        case .wind: "風"
+        case .pierce: "➤"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .lightning: "bolt.fill"
+        case .flame: "flame.fill"
+        case .wind: "wind"
+        case .pierce: "arrow.right.to.line.compact"
+        }
+    }
+
+    var tintHex: UInt {
+        switch self {
+        case .lightning: 0xFFD84D
+        case .flame: 0xFF6B45
+        case .wind: 0x66E5E0
+        case .pierce: 0xB58CFF
+        }
+    }
+}
+
+struct AttackItemLevels: Codable, Equatable {
+    var lightning = 0
+    var flame = 0
+    var wind = 0
+    var pierce = 0
+
+    func level(for kind: AttackItemKind) -> Int {
+        switch kind {
+        case .lightning: lightning
+        case .flame: flame
+        case .wind: wind
+        case .pierce: pierce
+        }
+    }
+
+    @discardableResult
+    mutating func levelUp(_ kind: AttackItemKind) -> Int {
+        let next = min(3, level(for: kind) + 1)
+        switch kind {
+        case .lightning: lightning = next
+        case .flame: flame = next
+        case .wind: wind = next
+        case .pierce: pierce = next
+        }
+        return next
+    }
+}
+
+struct AttackItemState: Codable, Equatable {
+    var levels = AttackItemLevels()
+    var pierceCharges = 0
+    var totalCollected = 0
+    var lastCollected: AttackItemKind?
+}
+
 struct ShotVector: Codable, Equatable {
     var x: Double
     var y: Double
@@ -148,6 +226,9 @@ struct ShotBrick: Codable, Equatable, Identifiable {
     var hitPoints: Int
     let supportIDs: [Int]
     let anchored: Bool
+    var embeddedItem: AttackItemKind?
+    let maximumArmor: Int
+    var armor: Int
     var isRemoved = false
     var penaltyHits = 0
     var lastPenaltyTick = -10_000
@@ -184,6 +265,7 @@ enum ShotRemovalCause: Equatable {
     case direct
     case shockwave
     case unsupportedFall
+    case attackItem(AttackItemKind)
 }
 
 enum ShotSimulationEvent: Equatable {
@@ -196,6 +278,9 @@ enum ShotSimulationEvent: Equatable {
     case powerExpired
     case negativeHit(id: Int, penalty: Int)
     case cleanDrop(id: Int, points: Int)
+    case armorChanged(id: Int, remainingArmor: Int)
+    case itemCollected(kind: AttackItemKind, level: Int, carrierID: Int)
+    case pierceChargesChanged(Int)
     case segmentAdvanced(Int)
     case missed
 }
@@ -222,6 +307,7 @@ struct ReturnShotState: Codable, Equatable {
     var phase: RunPhase = .playing
     var feedback = "같은 속성을 이어 공명 폭주를 만드세요"
     var destroyedBrickCount = 0
+    var attackItems = AttackItemState()
 
     var isPowerActive: Bool { powerTicks > 0 }
 }
@@ -242,6 +328,11 @@ struct RunSnapshot: Equatable {
     var feedback = "끌어서 받아치세요"
     var isReturnShot = false
     var destroyedBrickCount = 0
+    var attackItemLevels = AttackItemLevels()
+    var pierceCharges = 0
+    var totalItemsCollected = 0
+    var lastCollectedItem: AttackItemKind?
+    var stageArmor = 0
     var bestScore = 0
     var bestHeight = 0
 
@@ -259,10 +350,15 @@ struct RunResult: Equatable {
     let dailySeed: UInt64
     let previousBestScore: Int
     let previousBestHeight: Int
+    var attackItemLevels = AttackItemLevels()
+    var totalItemsCollected = 0
 
     var scoreDeltaFromPreviousBest: Int { score - previousBestScore }
     var heightDeltaFromPreviousBest: Int { height - previousBestHeight }
     var isNewBest: Bool { score > previousBestScore }
+    var highestAttackLevel: Int {
+        AttackItemKind.allCases.map(attackItemLevels.level(for:)).max() ?? 0
+    }
 
     var headline: String {
         height > 0 ? "\(height)m까지 연쇄 돌파!" : "첫 리턴에 다시 도전!"
@@ -288,6 +384,7 @@ enum GameEvent {
     case paddleReturn(edgeShot: Bool)
     case brickDestroyed(points: Int)
     case powerActivated
+    case itemCollected(AttackItemKind)
     case negativeHit
     case cleanDrop
     case finished(RunResult)

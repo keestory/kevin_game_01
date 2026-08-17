@@ -9,12 +9,13 @@
 
 | `GameEvent` | 의미 | 수신자 의무 |
 |---|---|---|
-| `snapshot(RunSnapshot)` | UI용 최신 점수·높이·콤보·LINK·power·PB | 메모리 투영만 갱신, 저장하지 않음 |
+| `snapshot(RunSnapshot)` | UI용 최신 점수·높이·콤보·LINK·power·PB·스킬 레벨·armor | 메모리 투영만 갱신, 저장하지 않음 |
 | `paddleReturn(edgeShot)` | 권위 paddle collision | 튜토리얼 종료와 보조 피드백 |
 | `brickDestroyed(points)` | 권위 positive 제거 | 시각·햅틱·오디오 보조 피드백만 수행 |
 | `powerActivated` | 5-LINK 6초 power 시작 | 중복 점수 변경 없이 효과만 수행 |
 | `negativeHit` | 직접 마이너스 penalty | 경고 피드백 |
 | `cleanDrop` | support 붕괴로 위험 제거 | 성공 피드백 |
+| `itemCollected(AttackItemKind)` | 직접 완파로 스킬 코어 획득·레벨업 | 중복 규칙 변경 없이 종류별 효과·햅틱·오디오만 수행 |
 | `finished(RunResult)` | 한 run의 최종 결과 | 프로필에 1회 반영, Scene 해제, 결과 route 전이 |
 
 ## 규칙 이벤트 계약
@@ -27,6 +28,21 @@
 - prism 반복 contact, shockwave, debris, unsupported fall은 LINK를 변경하지 않는다.
 - negative direct hit와 unsupported fall은 한 brick에 중복 적용하지 않는다.
 - support graph의 모든 권위 edge는 화면에도 표시한다.
+- 공격 파동은 positive 일반/프리즘 벽돌만 1 damage 처리하며 negative와 모든 carrier를 제외한다.
+- 공격 파동은 LINK를 올리지 않고 다른 코어를 수집하지 않으며, 한 번의 파동에서 combo를 최대 1만 올린다.
+- armor는 core HP보다 먼저 소모되고 armor 적중 자체는 core 점수를 지급하지 않는다.
+- 관통 charge는 positive 직접 접촉에서만 1 소모된다. negative 접촉에는 소모하지 않는다.
+
+## 공격 코어 규칙 계약
+
+| 코어 | L1 / L2 / L3 | 권위 대상 |
+|---|---|---|
+| 번개 | 최근접 1 / 2 / 3개에 1 피해 | source 외 가까운 positive |
+| 화염 | 반경 72 / 92 / 112, 최대 3 / 5 / 7개에 1 피해 | 반경 안 positive |
+| 바람 | source 위 2 / 3 / 4개에 1 피해 | y가 높은 positive |
+| 관통 | 1 / 2 / 3 charge 지급 | 이후 positive 직접 접촉 |
+
+이 순서·대상·레벨·armor·charge는 replay checksum에 포함한다. Scene의 파티클·오디오·햅틱·애니메이션 콜백은 어떤 권위 상태도 변경하지 않는다.
 
 ## 저장 계약
 

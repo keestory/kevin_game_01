@@ -17,6 +17,7 @@ final class AppModel: ObservableObject, GameSceneDelegate {
     private let haptics = HapticService()
     private let audio = GameAudioService()
     private let seed: UInt64
+    private let skipTutorialForTesting: Bool
     private var activeRunID: UUID?
 
     var hapticsEnabled: Bool {
@@ -35,6 +36,7 @@ final class AppModel: ObservableObject, GameSceneDelegate {
         self.persistence = persistence
         self.profile = arguments.contains("-uiTesting") ? PlayerProfile() : persistence.load()
         self.seed = arguments.contains("-uiTesting") ? 42 : seed
+        self.skipTutorialForTesting = arguments.contains("-skipTutorial")
         haptics.prepare()
     }
 
@@ -52,7 +54,7 @@ final class AppModel: ObservableObject, GameSceneDelegate {
         initialSnapshot.bestScore = profile.bestScore
         initialSnapshot.bestHeight = profile.bestHeight
         snapshot = initialSnapshot
-        showTutorial = !profile.tutorialSeen
+        showTutorial = !profile.tutorialSeen && !skipTutorialForTesting
         currentScene = newScene
         route = .game
     }
@@ -105,6 +107,9 @@ final class AppModel: ObservableObject, GameSceneDelegate {
         case .powerActivated:
             haptics.match(enabled: hapticsEnabled)
             audio.play(.perfect, enabled: soundEnabled)
+        case .itemCollected:
+            haptics.match(enabled: hapticsEnabled)
+            audio.play(.departure, enabled: soundEnabled)
         case .negativeHit:
             haptics.overflow(enabled: hapticsEnabled)
             audio.play(.missed, enabled: soundEnabled)

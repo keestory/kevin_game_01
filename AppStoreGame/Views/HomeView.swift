@@ -57,7 +57,7 @@ struct HomeView: View {
                         Text("RETURN SHOT")
                             .font(.system(size: 27, weight: .black, design: .rounded))
                             .foregroundStyle(Color.safetyYellow)
-                        Text("마크를 잇고 · 약점을 끊고 · 기록을 넘어서")
+                        Text("마크를 잇고 · 코어를 깨고 · 기록을 넘어서")
                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                             .foregroundStyle(.white.opacity(0.58))
                             .padding(.top, 6)
@@ -83,6 +83,7 @@ struct HomeView: View {
 
                     VStack(alignment: .leading, spacing: 11) {
                         rule(icon: "link", color: Color.exitMint, title: "5-LINK", body: "같은 색·무늬·마크를 이으면 6초 공명 폭주")
+                        rule(icon: "wand.and.stars", color: Color(hex: 0xB58CFF), title: "스킬 코어", body: "구조마다 1개 · 직접 깨면 즉시 발동 · 같은 코어는 LV3까지")
                         rule(icon: "diamond.fill", color: Color.safetyYellow, title: "프리즘", body: "3번 투자해 큰 점수를 얻거나 지지대를 먼저 끊기")
                         rule(icon: "minus.square.fill", color: Color.alertCoral, title: "마이너스", body: "직접 맞히면 −250, 지지점을 무너뜨리면 +120")
                     }
@@ -189,6 +190,17 @@ private struct ReturnShotPreview: View {
                                 .frame(maxWidth: .infinity, minHeight: 34)
                                 .background(signatures[index].0.opacity(variant == .impactPop ? 0.82 : 0.68), in: RoundedRectangle(cornerRadius: variant == .impactPop ? 5 : 9))
                                 .overlay(RoundedRectangle(cornerRadius: variant == .impactPop ? 5 : 9).stroke(signatures[index].0, lineWidth: variant == .impactPop ? 2 : 1))
+                                .overlay(alignment: .topTrailing) {
+                                    if index == 0 {
+                                        Image(systemName: "bolt.fill")
+                                            .font(.system(size: 8, weight: .black))
+                                            .foregroundStyle(.white)
+                                            .frame(width: 18, height: 18)
+                                            .background(Color(hex: 0x071225), in: Circle())
+                                            .overlay(Circle().stroke(Color.safetyYellow, lineWidth: 1.5))
+                                            .offset(x: 4, y: -4)
+                                    }
+                                }
                         }
                     }
 
@@ -237,6 +249,6 @@ private struct ReturnShotPreview: View {
         }
         .frame(height: 226)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("패들로 공을 받아 같은 마크를 잇고, 프리즘과 마이너스 지지 구조를 공략하는 화면")
+        .accessibilityLabel("패들로 공을 받아 같은 마크를 잇고, 공격 코어와 프리즘, 마이너스 지지 구조를 공략하는 화면")
     }
 }

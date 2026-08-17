@@ -1,11 +1,11 @@
 ---
 spec_format_version: "0.1"
-title: "연쇄파괴: 리턴 샷 — 속성 링크와 구조 붕괴 endless prototype"
+title: "연쇄파괴: 리턴 샷 — 스킬 코어와 구조 붕괴 endless prototype"
 artifact_type: "hypothesis"
-spec_revision: 2
+spec_revision: 3
 author: "Product Orchestrator"
 created_at: "2026-08-10T00:00:00+09:00"
-updated_at: "2026-08-18T01:00:00+09:00"
+updated_at: "2026-08-18T02:00:00+09:00"
 linked_github_repo: "keestory/kevin_game_01"
 ---
 
@@ -15,11 +15,11 @@ linked_github_repo: "keestory/kevin_game_01"
 
 ## Hypothesis
 
-플레이어가 한 엄지로 패들을 계속 움직여 반사각을 만들고, 색·무늬·마크 속성을 연속으로 맞혀 일시 파워를 발동하며, 직접 맞히면 감점되는 위험 벽돌은 지지점을 끊어 간접 낙하시킨다면, 단순 벽돌 제거보다 조준·위험·구조 선택의 숙련이 생기고 같은 seed의 세 번째 run 기록이 첫 run보다 상승할 것이다.
+플레이어가 한 엄지로 패들을 계속 움직여 반사각을 만들고, 색·무늬·마크 속성을 연속으로 맞히며, 구조 안의 스킬 코어를 직접 노려 번개·화염·바람·관통을 run 안에서 성장시킨다면, 별도 버튼 없이도 조준·위험·빌드 선택의 숙련이 생기고 같은 seed의 세 번째 run 기록이 첫 run보다 상승할 것이다.
 
 ## Product Summary
 
-`연쇄파괴: 리턴 샷`은 세로형 endless 물리 아케이드다. 공은 자동으로 왕복하고 플레이어는 패들의 접촉 위치와 이동 속도로 다음 반사각을 바꾼다. 일반·프리즘 벽돌에는 색, 무늬, 마크가 있으며 같은 속성을 연속 적중하면 LINK가 오른다. 한 속성이 5연속이면 6초간 `공명 폭주`가 발동해 속도·점수·관통력이 상승한다. 3HP 프리즘은 반복 투자 보상을 제공하고, 마이너스 벽돌은 직접 맞히지 않고 지지 구조를 무너뜨려 제거한다. run은 실수할 때까지 계속되며 점수·높이·콤보·LINK 개인 기록을 추격한다.
+`연쇄파괴: 리턴 샷`은 세로형 endless 물리 아케이드다. 공은 자동으로 왕복하고 플레이어는 패들의 접촉 위치와 이동 속도로 다음 반사각을 바꾼다. 일반·프리즘 벽돌에는 색, 무늬, 마크가 있으며 같은 속성을 연속 적중하면 LINK가 오른다. 한 속성이 5연속이면 6초간 `공명 폭주`가 발동한다. 구조마다 일반 벽돌 한 개에는 번개·화염·바람·관통 코어가 순서대로 들어 있고, 그 벽돌을 직접 파괴하면 해당 공격이 즉시 발동하며 run 안에서 Lv1~3으로 성장한다. 3HP 프리즘과 마이너스 지지 붕괴는 유지하고, 구조 4부터 최대 2겹의 별도 방어막만 추가한다. run은 실수할 때까지 계속되며 점수·높이·콤보·LINK·스킬 빌드 개인 기록을 추격한다.
 
 ## Scope
 
@@ -29,6 +29,9 @@ in:
   - Give every eligible positive brick one color, one pattern, and one mark, with all three visible without relying on color alone.
   - Track color, pattern, and mark LINK independently and activate a six-second resonance power when any one reaches five consecutive eligible direct contacts.
   - Include normal bricks, two-hit support nodes, three-hit prism bonus bricks, and indestructible negative bricks removable through support loss.
+  - Embed exactly one deterministic attack core in a normal brick per structure; cycle lightning, flame, wind, and pierce in that order.
+  - Level each attack independently from zero to three for the current run and fire the newly collected level without pausing or adding another input.
+  - Add a separate zero-to-two armor layer by structure while preserving every role's core hit-point contract.
   - Apply negative score only to authoritative direct ball contact; cosmetic debris and shockwaves never cause a penalty.
   - Include deterministic support-collapse transactions, endless segment generation, score, height, combo, personal-best line, pace ghost, pause, Reduce Motion, and one-tap same-seed retry.
   - Introduce mechanics by physical height: LINK path first, prism second, negative support-drop third.
@@ -36,11 +39,14 @@ out:
   - Do not add train gameplay, station progression, rewarded continue, forced ads, friend-install rewards, pay-to-win score boosters, multiplayer, account, server, or live economy.
   - Do not use dynamic SpriteKit physics as the authoritative rules engine.
   - Do not allow random or cosmetic contacts to alter score, combo, LINK, hit points, or collapse state.
+  - Do not allow shockwave, unsupported fall, or another attack item to collect or recursively activate an embedded core.
+  - Do not add an inventory screen, skill-choice modal, manual skill button, permanent stat upgrade, paid damage, or ad-gated armor solution.
   - Do not claim App Store rank, retention, CPI, or LTV before measured evidence.
 cut:
   - Cut independent pattern and mark scoring and use one redundant signature family if five-second understanding fails.
   - Cut shockwave chaining before reducing ball visibility or deterministic collision quality.
   - Cut particles, debris, and camera motion before reducing input latency or frame stability.
+  - Cut attack target count and visual effects before raising armor above two or changing prism core hit points.
 ```
 
 ## User Experience
@@ -51,6 +57,7 @@ cut:
 - 위층: 큰 `−`, 톱니 테두리, 경고 연결선을 가진 마이너스를 피하고 아래 지지점을 노린다.
 - 실패: 공이 miss line을 완전히 통과하면 0.6초 안에 결과를 보여주고 `같은 구조 다시` 한 번 탭으로 재시작한다.
 - 기록: 좌측 높이 ruler에 최고 기록선, HUD에 최고 pace와 현재 차이를 표시한다.
+- 스킬: 코어 벽돌은 색·무늬·마크와 겹치지 않는 모서리 배지로 구분하고, 파괴 즉시 해당 공격·레벨을 한 문장으로 알린다.
 
 ## Core Rules
 
@@ -90,6 +97,26 @@ cut:
 - 지지 상실: penalty 없이 낙하, `위험 제거 +120`.
 - 같은 tick에는 지지 피해, collapse 계산, 남은 직접 충돌 순으로 처리한다.
 
+### Attack cores and run levels
+
+- 구조마다 normal brick 후보를 stable ID로 정렬하고 별도 seed salt로 정확히 한 carrier를 결정한다.
+- 공격 종류는 구조 순서대로 `번개 → 화염 → 바람 → 관통`을 반복한다. 같은 seed retry는 carrier와 종류가 동일하다.
+- carrier를 직접 파괴했을 때만 해당 공격 레벨이 `0 → 1 → 2 → 3`으로 오른 뒤 그 레벨로 한 번 발동한다. Lv3 이후 같은 코어는 Lv3 효과만 다시 발동한다.
+- shockwave, unsupported fall, attack wave로 carrier가 제거되면 코어는 획득되지 않는다.
+- 공격 wave는 carrier와 negative를 대상으로 삼지 않고 LINK를 올리거나 끊지 않으며 다른 코어를 연쇄 발동하지 않는다.
+- attack wave에서 여러 벽돌이 제거돼도 콤보 증가는 최대 한 번이고, 제거 점수는 기존 shockwave와 같은 벽돌당 60점이다.
+- 번개: source에서 거리, brick ID 순으로 가까운 positive 1/2/3개에 1 damage.
+- 화염: source 반경 72/92/112pt 안의 positive를 거리, brick ID 순으로 최대 3/5/7개에 1 damage.
+- 바람: source보다 위의 positive를 y, x 거리, brick ID 순으로 2/3/4개에 1 damage.
+- 관통: 1/2/3 charge를 더한다. 다음 positive direct contact에서 charge 하나를 소비하고 정상 damage 뒤 반사하지 않는다. negative contact에는 charge를 소비하지 않는다.
+
+### Stage armor
+
+- 구조 1~3은 armor 0, 구조 4~6은 armor 1, 구조 7 이상은 armor 2이며 그 이상 증가하지 않는다.
+- armor는 모든 positive 벽돌에 적용하되 negative에는 적용하지 않는다. 기존 normal 1HP, support 2HP, prism 3HP core 계약은 유지한다.
+- damage는 armor를 먼저 흡수하고 남은 damage만 core HP에 적용한다. armor-only hit은 core hit reward, 파괴, 콤보를 발생시키지 않는다.
+- armor와 core HP는 별도 모양으로 표시하며 색만으로 구분하지 않는다.
+
 ## Acceptance Criteria
 
 ```productspec-acceptance-criteria
@@ -117,6 +144,16 @@ cut:
   criterion: Five users playing the same seed three times improve median run-three score or height by at least 20 percent; at least three voluntarily retry and median fun is at least four of seven.
 - id: AC-12
   criterion: SwiftPM, Xcode unit and UI smoke, strict-concurrency build, secret scan, and minimum-device performance gates pass with no P0 or P1 defect.
+- id: AC-13
+  criterion: Every structure has exactly one deterministic normal-brick carrier and cycles lightning, flame, wind, and pierce without changing the existing signature, role, or support random stream.
+- id: AC-14
+  criterion: Only direct carrier removal levels and activates an attack; unsupported fall, resonance, or another attack wave cannot collect a core, target a negative brick, change LINK, or recursively activate an item.
+- id: AC-15
+  criterion: Lightning, flame, and wind use their bounded level-one through level-three target counts with stable tie-breaking, while pierce consumes exactly one charge only on a positive direct contact.
+- id: AC-16
+  criterion: Structure armor follows zero, one, and two-layer boundaries, absorbs damage before core hit points, never exceeds two, and leaves prism core durability at exactly three.
+- id: AC-17
+  criterion: On a 375 by 667 point display, four skill levels, active feedback, armor, ball path, LINK, negative warning, and primary controls remain distinguishable without clipping or relying on color alone.
 ```
 
 ## Success Metrics
@@ -154,6 +191,17 @@ cut:
   target_status: provisional
   target_owner: "Growth and Analytics"
   window: no-ad TestFlight cohort
+- id: SM-7
+  metric: skill_core_understanding
+  target: ">= 4 of 5 users explain that directly breaking the marked brick levels and fires its attack"
+  target_status: committed
+  window: moderated same-seed test
+- id: SM-8
+  metric: skill_core_replay_lift
+  target: "skill-core build improves voluntary third run without reducing active-touch share below 60%"
+  target_status: provisional
+  target_owner: "Product and UX Research"
+  window: baseline versus skill-core prototype
 ```
 
 ## Risks
@@ -163,6 +211,9 @@ cut:
 - 프리즘 반복 왕복이나 중앙 정지 패들이 단일 최적 전략이 될 수 있다.
 - 속성 연속·파괴 콤보·폭주 점수가 중첩돼 한 번의 운이 전체 순위를 결정할 수 있다.
 - 패들·공·파괴 구조만으로는 Breakout 계보를 벗어났다고 주장할 수 없다.
+- 네 공격이 기존 공명 shockwave·관통과 겹치거나 `PunBall`의 축소판처럼 보일 수 있다.
+- armor가 조준 숙련보다 반복 타격을 강제하면 즉시 스펀지 난이도가 된다.
+- 공격 효과가 carrier·negative·지지선을 가리거나 RNG가 PB 공정성을 훼손할 수 있다.
 
 ## Business Validation Gate
 
@@ -178,6 +229,10 @@ cut:
 - 중앙 정지 패들 또는 극단 왕복 하나가 다른 전략보다 우월하다.
 - 공 관통, double score, corner jitter, invalid support graph가 한 건이라도 남는다.
 - 3/5 이상이 세 번 플레이한 뒤에도 속성 경로·프리즘 투자·위험 제거 중 두 가지를 언급하지 않고 `그냥 벽돌깨기`라고만 설명한다.
+- 5명 중 2명 이상이 carrier를 LINK 속성으로 오인하거나 직접 파괴해야 획득한다는 규칙을 설명하지 못한다.
+- 일반 벽돌이 armor 때문에 세 번을 초과해 맞아야 하거나 3초 이상 같은 벽돌 반복 타격을 요구한다.
+- attack wave가 negative를 때리거나 LINK·다른 core를 한 번이라도 발동한다.
+- 스킬 도입 후 active-touch가 60% 미만이거나 자발적 3회차가 baseline보다 개선되지 않는다.
 
 ## Related Artifacts
 
@@ -197,4 +252,9 @@ cut:
   title: "ImageGen, Vision, interaction and A/B visual QA"
   section_id: acceptance_criteria
   item_id: AC-12
+- type: engineering_spec
+  url: "../04-design/skill-core-visual-audit-2026-08-18.md"
+  title: "Skill core visual and accessibility audit"
+  section_id: acceptance_criteria
+  item_id: AC-17
 ```

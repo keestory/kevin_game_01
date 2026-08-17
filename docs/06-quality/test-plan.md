@@ -1,7 +1,7 @@
 # Return Shot 테스트 계획
 
 - 기준일: 2026-08-18 KST
-- 기준 계약: `docs/product-specs/return-shot-chain.product-spec.md` rev2
+- 기준 계약: `docs/product-specs/return-shot-chain.product-spec.md` rev3
 - 단계: Stage 6 Implementation
 - 원칙: 코드·XCUITest·스크린샷은 실제 사용자 재미와 실기기 성능을 대체하지 않는다.
 
@@ -16,10 +16,14 @@
 | 프리즘 | 3HP, 반복 적중 LINK farming 금지, 완파/낙하 중복 없음 |
 | 마이너스 | 직접 `−250`, cooldown·최대 2회, 지지 붕괴 `+120` |
 | support graph | 모든 참조 유효, 제거 transaction 결정론적 |
+| 스킬 코어 | 구조당 1개·4종 순환·직접 완파만 수집·종류별 L3 cap |
+| 공격 범위 | 번개 1/2/3, 화염 반경·3/5/7, 바람 상단 2/3/4, 관통 1/2/3 charge |
+| 공격 안전성 | negative/carrier 제외, 재귀 수집 0, LINK 변화 0, 파동 combo 최대 1 |
+| 방어막 | 구조 1~3=0, 4~6=1, 7+=2; core HP보다 우선; 점수 중복 0 |
 | UI band | 권위 공이 HUD·coachmark 예약 영역에 진입하지 않음 |
 | 기록 | score·height·combo·PB delta 계약과 저장 migration |
 
-현재 `AppStoreGameTests/GameRulesTests.swift`의 12개 테스트가 위 범위를 실행한다.
+현재 `AppStoreGameTests/GameRulesTests.swift`의 25개 테스트가 위 범위를 실행한다.
 
 ## UI 흐름
 
@@ -28,9 +32,10 @@
 1. 홈의 시작 CTA 존재
 2. 시작 후 SpriteView 존재
 3. 한 엄지 drag 입력
-4. 일시정지 overlay와 재개
-5. 결과 화면과 기록 delta
-6. `같은 구조 다시` 후 새 gameplay Scene
+4. 스킬 코어 HUD 존재와 게임 화면 캡처
+5. 일시정지 overlay와 재개
+6. 결과 화면과 기록 delta
+7. `같은 구조 다시` 후 새 gameplay Scene
 
 테스트 hook은 Release 규칙을 바꾸지 않으며 종료는 재개 뒤에만 arm한다.
 
@@ -54,6 +59,8 @@ Vision 검사는 위계·간격·대비·텍스트·반응형·모바일·터치
 - Run 3 score 또는 height 중앙값: Run 1 대비 `+20%`
 - active-touch 중앙값 `≥60%`
 - 5명 중 4명: LINK·프리즘·마이너스 간접 제거 설명
+- 5명 중 4명: 코어가 들어 있는 벽돌과 획득한 스킬 레벨을 색 없이 구분
+- 5명 중 4명: 방어막과 core HP의 차이를 첫 armor 구조에서 설명
 - 불공정 죽음·공 관통·중복 점수: 0건
 
 ## 실기기 성능·안정성
@@ -80,8 +87,11 @@ xcodebuild -project AppStoreGame.xcodeproj -scheme AppStoreGame \
 
 ## 최신 영수증
 
-- SwiftPM: 12/12
-- Xcode unit: 12/12
-- XCUITest: 1/1, 22.667초
-- 전체: 13/13, 114.094초
-- xcresult: `/private/tmp/ReturnShotFinalDerived/Logs/Test/Test-AppStoreGame-2026.08.18_00-20-57-+0900.xcresult`
+- SwiftPM: 25/25
+- Xcode unit: 25/25
+- XCUITest: 1/1, 23.107초
+- iPhone SE XCUITest: 1/1, 18.656초, 375×667 game 캡처 Pass
+- 합산: 26/26. 규칙과 최종 UI는 아래 분리 영수증으로 확인했다.
+- unit xcresult: `/private/tmp/ReturnShotSkillCoreUnitFinalDerived/Logs/Test/Test-AppStoreGame-2026.08.18_01-37-16-+0900.xcresult` (unit 25/25)
+- final UI xcresult: `/private/tmp/ReturnShotSkillCoreFinalDerived/Logs/Test/Test-AppStoreGame-2026.08.18_01-29-32-+0900.xcresult` (UI 1/1)
+- SE UI xcresult: `/private/tmp/ReturnShotSkillCoreSEDerived/Logs/Test/Test-AppStoreGame-2026.08.18_01-31-50-+0900.xcresult` (UI 1/1)

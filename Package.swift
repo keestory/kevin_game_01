@@ -17,7 +17,9 @@ let package = Package(
         .testTarget(
             name: "GameCoreTests",
             dependencies: ["GameCore"],
-            path: "AppStoreGameTests"
+            path: "AppStoreGameTests",
+            exclude: ["GameRulesTests 2.swift"],
+            sources: ["GameRulesTests.swift"]
         )
     ]
 )

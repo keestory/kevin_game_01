@@ -15,7 +15,7 @@ struct GameContainerView: View {
             )
             .ignoresSafeArea()
             .accessibilityLabel("연쇄파괴 리턴 샷")
-            .accessibilityHint("화면을 좌우로 끌어 패들을 움직이고, 같은 속성을 이어 마이너스 벽돌의 지지점을 노리세요")
+            .accessibilityHint("좌우로 끌어 패들을 움직입니다. 모서리에 공격 문양이 있는 벽돌을 직접 깨면 그 공격이 성장하고 발동합니다")
             .accessibilityValue(gameAccessibilityValue)
             .accessibilityAdjustableAction { direction in
                 switch direction {
@@ -83,7 +83,13 @@ struct GameContainerView: View {
         let power = model.snapshot.powerSeconds > 0
             ? ", 공명 폭주 \(model.snapshot.powerSeconds.formatted(.number.precision(.fractionLength(1))))초"
             : ""
-        return "점수 \(model.snapshot.score), 높이 \(model.snapshot.height)미터, 콤보 \(model.snapshot.combo), \(model.snapshot.link.leadingText)\(power)"
+        let skills = AttackItemKind.allCases
+            .map { "\($0.name) 레벨 \(model.snapshot.attackItemLevels.level(for: $0))" }
+            .joined(separator: ", ")
+        let pierce = model.snapshot.pierceCharges > 0
+            ? ", 관통 \(model.snapshot.pierceCharges)회 충전"
+            : ""
+        return "점수 \(model.snapshot.score), 높이 \(model.snapshot.height)미터, 콤보 \(model.snapshot.combo), \(model.snapshot.link.leadingText), \(skills), 방어막 단계 \(model.snapshot.stageArmor)\(pierce)\(power)"
     }
 }
 
@@ -231,9 +237,30 @@ private struct GameplayFeedbackPill: View {
                 Text(snapshot.feedback)
                     .font(.system(.caption, design: .rounded, weight: .black))
                     .lineLimit(1)
-                Text("구조 \(snapshot.segment) · 최고 LINK \(snapshot.maxLink)/5")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.58))
+                HStack(spacing: 5) {
+                    Text("구조 \(snapshot.segment)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.58))
+
+                    ForEach(AttackItemKind.allCases, id: \.self) { kind in
+                        if snapshot.attackItemLevels.level(for: kind) > 0 {
+                            SkillCoreChip(
+                                kind: kind,
+                                level: snapshot.attackItemLevels.level(for: kind),
+                                charge: kind == .pierce ? snapshot.pierceCharges : 0,
+                                isLatest: snapshot.lastCollectedItem == kind
+                            )
+                        }
+                    }
+
+                    Spacer(minLength: 2)
+
+                    if snapshot.stageArmor > 0 {
+                        Label("+\(snapshot.stageArmor)", systemImage: "shield.lefthalf.filled")
+                            .font(.system(size: 10, weight: .black, design: .rounded))
+                            .foregroundStyle(Color(hex: 0xA9E7FF))
+                    }
+                }
             }
         }
         .padding(.horizontal, 14)
@@ -241,6 +268,46 @@ private struct GameplayFeedbackPill: View {
         .background(Color(hex: variant == .impactPop ? 0x241B31 : 0x0C192C).opacity(0.93), in: Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.14)))
         .shadow(color: .black.opacity(0.28), radius: 8, y: 3)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(snapshot.feedback), 구조 \(snapshot.segment), 스킬 코어 상태")
+        .accessibilityIdentifier("skillCoreHUD")
+    }
+}
+
+private struct SkillCoreChip: View {
+    let kind: AttackItemKind
+    let level: Int
+    let charge: Int
+    let isLatest: Bool
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: kind.systemImage)
+                .font(.system(size: 10, weight: .black))
+            Text(charge > 0 ? "L\(level) ×\(charge)" : "L\(level)")
+                .font(.system(size: 10, weight: .black, design: .rounded))
+                .monospacedDigit()
+        }
+        .foregroundStyle(Color(hex: kind.tintHex))
+        .padding(.horizontal, 4)
+        .frame(minHeight: 20)
+        .background(
+            (isLatest ? Color(hex: kind.tintHex) : Color.white)
+                .opacity(isLatest ? 0.16 : 0.06),
+            in: Capsule()
+        )
+        .overlay(
+            Capsule()
+                .stroke(
+                    Color(hex: kind.tintHex).opacity(isLatest ? 0.72 : 0.28),
+                    lineWidth: 0.8
+                )
+        )
+        .accessibilityLabel(
+            charge > 0
+                ? "\(kind.name) 레벨 \(level), \(charge)회 충전"
+                : "\(kind.name) 레벨 \(level)"
+        )
     }
 }
 
