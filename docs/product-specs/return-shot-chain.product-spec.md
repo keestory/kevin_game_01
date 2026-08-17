@@ -5,7 +5,7 @@ artifact_type: "hypothesis"
 spec_revision: 2
 author: "Product Orchestrator"
 created_at: "2026-08-10T00:00:00+09:00"
-updated_at: "2026-08-17T23:41:00+09:00"
+updated_at: "2026-08-18T01:00:00+09:00"
 linked_github_repo: "keestory/kevin_game_01"
 ---
 
@@ -93,62 +93,62 @@ cut:
 ## Acceptance Criteria
 
 ```productspec-acceptance-criteria
-- id: RS-AC-1
+- id: AC-1
   criterion: At least four of five target users return the first ball within five seconds and explain that dragging the paddle aims the next shot upward.
-- id: RS-AC-2
+- id: AC-2
   criterion: Median active-touch share is at least 60 percent, meaningful steering is 20 to 40 actions per minute, and the first thirty seconds contain no forced input gap longer than two seconds.
-- id: RS-AC-3
+- id: AC-3
   criterion: Color, pattern, and mark LINK update only on eligible authoritative direct contacts; support, repeated prism, shockwave, debris, and unsupported fall cannot farm or break LINK.
-- id: RS-AC-4
+- id: AC-4
   criterion: Exactly five consecutive matches in any attribute activate one six-second resonance power; cadence, duplicate contact, and simultaneous collision cannot grant it twice.
-- id: RS-AC-5
+- id: AC-5
   criterion: Prism has exactly three hit points and its direct-hit, completion, powered-damage, and unsupported-fall rewards match the ProductSpec once each.
-- id: RS-AC-6
+- id: AC-6
   criterion: Direct negative contact applies minus 250 and resets combo and LINK while unsupported fall gives plus 120 without penalty; a brick cannot be processed by both removal causes.
-- id: RS-AC-7
+- id: AC-7
   criterion: Support collapse is deterministic by time of impact then brick ID, and every generated negative brick has an accessible support-removal path and at least two avoidable ball routes.
-- id: RS-AC-8
+- id: AC-8
   criterion: The run continues beyond sixty seconds until a miss, personal-best score and height are monotonic, and one-tap same-seed retry starts within 0.8 seconds.
-- id: RS-AC-9
+- id: AC-9
   criterion: Same seed and quantized input replay produce the same checksum, score, collision order, and collapse set at 30, 60, and 120 render Hz with zero tunneling or duplicate score.
-- id: RS-AC-10
+- id: AC-10
   criterion: The ball, paddle, predicted landing range, signatures, prism durability, negative warning, and support links remain distinguishable without color and under Reduce Motion.
-- id: RS-AC-11
+- id: AC-11
   criterion: Five users playing the same seed three times improve median run-three score or height by at least 20 percent; at least three voluntarily retry and median fun is at least four of seven.
-- id: RS-AC-12
+- id: AC-12
   criterion: SwiftPM, Xcode unit and UI smoke, strict-concurrency build, secret scan, and minimum-device performance gates pass with no P0 or P1 defect.
 ```
 
 ## Success Metrics
 
 ```productspec-success-metrics
-- id: RS-SM-1
+- id: SM-1
   metric: unassisted_first_return
   target: ">= 4 of 5 users within five seconds"
   target_status: committed
   window: moderated graybox test
-- id: RS-SM-2
+- id: SM-2
   metric: voluntary_third_run
   target: ">= 3 of 5 users"
   target_status: committed
   window: same-seed moderated test
-- id: RS-SM-3
+- id: SM-3
   metric: mastery_gain
   target: "median run-three score or height >= run-one x 1.20"
   target_status: committed
   window: same-seed moderated test
-- id: RS-SM-4
+- id: SM-4
   metric: mechanic_understanding
   target: ">= 4 of 5 explain LINK, prism investment, and negative support-drop after first sixty seconds"
   target_status: committed
   window: moderated graybox test
-- id: RS-SM-5
+- id: SM-5
   metric: day_one_retention
   target: ">= 30% provisional; recommit after baseline and MDE"
   target_status: provisional
   target_owner: "Growth and Analytics"
   window: no-ad TestFlight cohort
-- id: RS-SM-6
+- id: SM-6
   metric: day_seven_retention
   target: ">= 10% provisional; recommit after baseline and MDE"
   target_status: provisional
@@ -184,17 +184,17 @@ cut:
 ```productspec-related-artifacts
 - type: github_pr
   url: "https://github.com/keestory/kevin_game_01/pull/1"
-  title: "Initial iOS prototype Draft PR"
+  title: "Return Shot visual MVP Draft PR"
   section_id: acceptance_criteria
-  item_id: RS-AC-12
-- type: research
+  item_id: AC-12
+- type: other
   url: "../01-research/endless-score-pivot-2026-08-10.md"
   title: "2026 Korea market evidence and endless score pivot"
   section_id: success_metrics
-  item_id: RS-SM-5
-- type: visual_qa
+  item_id: SM-5
+- type: engineering_spec
   url: "../04-design/return-shot-visual-builder-report-2026-08-17.md"
   title: "ImageGen, Vision, interaction and A/B visual QA"
   section_id: acceptance_criteria
-  item_id: RS-AC-12
+  item_id: AC-12
 ```
