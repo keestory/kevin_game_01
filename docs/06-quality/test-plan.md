@@ -1,77 +1,87 @@
-# 테스트 계획 — Product Harness revision 1
+# Return Shot 테스트 계획
 
-- 기준일: 2026-08-09
-- 대상: 실제 열차 제동 vertical slice
-- 기준 계약: `docs/product-specs/real-train-braking.product-spec.md`
-- 판정 원칙: 증거 없는 P0/P1은 통과가 아니라 Blocked다.
+- 기준일: 2026-08-18 KST
+- 기준 계약: `docs/product-specs/return-shot-chain.product-spec.md` rev2
+- 단계: Stage 6 Implementation
+- 원칙: 코드·XCUITest·스크린샷은 실제 사용자 재미와 실기기 성능을 대체하지 않는다.
 
-## 1. 자동 테스트
+## 자동 규칙 테스트
 
-### 순수 규칙
+| 범위 | 필수 계약 |
+|---|---|
+| 결정성 | 같은 seed 구조, 30/60/120Hz 합성 입력 checksum 동일 |
+| 반사 | 접촉 offset과 패들 속도가 각도를 바꾸고 수평 무한 왕복 방지 |
+| 충돌 | swept collision로 빠른 공의 tunneling 0 |
+| LINK | 색·무늬·마크 독립, 정확히 5회에 6초 power 1회 |
+| 프리즘 | 3HP, 반복 적중 LINK farming 금지, 완파/낙하 중복 없음 |
+| 마이너스 | 직접 `−250`, cooldown·최대 2회, 지지 붕괴 `+120` |
+| support graph | 모든 참조 유효, 제거 transaction 결정론적 |
+| UI band | 권위 공이 HUD·coachmark 예약 영역에 진입하지 않음 |
+| 기록 | score·height·combo·PB delta 계약과 저장 migration |
 
-- 동일 시드·StationPlan·입력 시각의 grade, 하차 인원, 점수 결정성.
-- perfect/safe/near 경계와 ±1ms, nil·범위 밖 입력.
-- 5역 수요 `[5, 6, 6, 7, 8]`, 1단계 목표 22/32, 도움 난이도의 단조성.
-- 5역 최대 1,500점을 넘지 않는 targetScore.
-- PlayerProfile v1/v2→v3 마이그레이션, 새 튜토리얼 재노출, 미래 버전 복구.
+현재 `AppStoreGameTests/GameRulesTests.swift`의 12개 테스트가 위 범위를 실행한다.
 
-### AppModel·Scene
+## UI 흐름
 
-- 첫 coachmark는 첫 결과 전 유지되고 첫 결과 후 저장된다.
-- 첫 세 운행은 Rewarded Continue를 노출·실행하지 않는다.
-- 이전 Scene의 snapshot/rescue/finished와 교체된 런의 callback은 무시한다.
-- inactive 중 reward는 자동 재개하지 않고 현재 런에만 pending 처리한다.
-- 동일 impression은 1회만 반영한다.
-- 기본 5역 종료에서 elapsed=duration, 결과는 targetExited로 결정된다.
-- 무료 추가 역은 1회·+12초이고 무료 재시도는 한 번 탭으로 새 런을 시작한다.
+`AppStoreGameUITests`는 격리된 seed 42와 fast-fail hook으로 다음을 검증한다.
 
-### UI smoke
+1. 홈의 시작 CTA 존재
+2. 시작 후 SpriteView 존재
+3. 한 엄지 drag 입력
+4. 일시정지 overlay와 재개
+5. 결과 화면과 기록 delta
+6. `같은 구조 다시` 후 새 gameplay Scene
 
-- 첫 실행 → 홈 → 운행 → 실제 열차 Scene → 제동 CTA.
-- coachmark, `역 접근 중/지금 제동/승하차 중`, 문 개방, 결과, 재시도.
-- pause/background/foreground, 구조 제안, 설정 지속, 공유 sheet.
+테스트 hook은 Release 규칙을 바꾸지 않으며 종료는 재개 뒤에만 arm한다.
 
-## 2. 수동·실기기 테스트
+## 시각·반응형 QA
 
-| ProductSpec | 증거 | 통과 |
+| 화면 | 증거 | 현재 |
 |---|---|---|
-| AC-1 | 텍스트 없는 첫 프레임 원본 캡처 | 실제 열차 구성요소·IP 감사 |
-| AC-2 | 첫 역 타이머+coachmark 연속 영상 | 제동 가능 전 60초, 첫 결과 후 안내 종료 |
-| AC-4 | 문 닫힘→열림→하차→탑승→닫힘 60fps 영상 | 문턱 통과, 차체 관통·순간이동 없음 |
-| AC-5 | VoiceOver·Switch Control·Reduce Motion 영상 | 핵심 상태 인지, 비필수 모션 제거 |
-| AC-8 | 익명 사용자 원시 기록 | 2초 5/5, 5초 4/5, 재시도 4/5, 재미 4/7 |
-| AC-9 | Instruments·TestFlight 보고서 | 30분 soak, hitch·leak·진행 손상 없음 |
-| AC-10 | App Store 제출 체크리스트 | 서명·메타데이터·정책·지원 준비 완료 |
+| iPhone 17 Pro A/B | home, game, result 캡처 | Pass |
+| iPhone 17e A | game 캡처 | Pass |
+| iPhone SE 3세대 375×667 A | game 캡처 | Pass |
+| SE home/result | 750×1334 캡처와 전체 UI 흐름 | Pass |
+| 최대 Dynamic Type·Increase Contrast | 실제 화면 검사 | Pending P1 |
+| VoiceOver·Switch Control | 핵심 흐름 실사용 | Pending P1 |
 
-## 3. 성능·안정성
+Vision 검사는 위계·간격·대비·텍스트·반응형·모바일·터치 명확성을 화면마다 확인한다. iPhone 앱에서 hover는 N/A이며 44pt target과 pressed state로 대체한다.
 
-- 최소 지원 실제 iPhone에서 평균 55fps 이상, p95 frame time 22ms 이하.
-- 15분 플레이 중 100ms 초과 gameplay hitch 0회.
-- 10회 재시작 후 메모리 증가 10MB 이하, leak 0.
-- background/foreground 50회, 새 게임 100회에서 crash·중복 finish·보상 오염 0.
-- Reduce Motion, 저전력, 열상태, 오디오 interruption, 비행기모드를 포함한다.
+## 수동 사용자 Gate
 
-## 4. PR 필수 체크
+- 5명 중 4명: 설명 없이 5초 안에 첫 리턴
+- 5명 중 3명: 자발적 세 번째 run
+- Run 3 score 또는 height 중앙값: Run 1 대비 `+20%`
+- active-touch 중앙값 `≥60%`
+- 5명 중 4명: LINK·프리즘·마이너스 간접 제거 설명
+- 불공정 죽음·공 관통·중복 점수: 0건
 
-1. ProductSpec·Decision Trace·Agent Run schema validation과 spec consistency.
-2. `swift test`.
-3. Xcode unit·UI smoke.
-4. unsigned iOS Simulator build.
-5. `plutil -lint`, `git diff --check`, secret/privacy scan.
+## 실기기 성능·안정성
 
-Release에는 추가로 signed archive, entitlement·PrivacyInfo·App Store Connect 교차 확인, clean install·v1/v2 upgrade, 실기기 성능·접근성·30분 soak가 필요하다.
+- 최소 지원 iPhone 10분 soak, 목표 60fps·hard floor 30fps
+- 100ms 초과 gameplay hitch 0회
+- retry 20회 뒤 메모리 증가 5MB 이하, leak 0
+- background/foreground, 저전력, 열상태, 메모리 경고, Reduce Motion
 
-## 5. 재현 명령
+## 재현 명령
 
-```bash
-npm exec --package @productspec/parser -- productspec validate docs/product-specs/real-train-braking.product-spec.md
-npm exec --package @productspec/parser -- productspec validate-trace docs/decision-traces/real-train-braking.decision-trace.json
-swift test --scratch-path /private/tmp/kevin-game-spm
-xcodebuild -project AppStoreGame.xcodeproj -scheme AppStoreGame \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
-  -derivedDataPath /private/tmp/kevin-game-tests CODE_SIGNING_ALLOWED=NO test
-plutil -lint AppStoreGame/Resources/PrivacyInfo.xcprivacy
-git diff --check
+```sh
+swift test --scratch-path /private/tmp/ReturnShotSwiftPM
 ```
 
-명령·Xcode/Swift/OS·exit code·xcresult·스크린샷·commit SHA를 Agent Run 영수증에 기록한다.
+```sh
+xcodebuild -project AppStoreGame.xcodeproj -scheme AppStoreGame \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+  -derivedDataPath /private/tmp/ReturnShotTestDerived \
+  CODE_SIGNING_ALLOWED=NO test
+```
+
+추가 필수 검사: `plutil -lint`, `git diff --check`, secret scan, asset provenance hash, Assets.car contents. Release에는 signed archive/export와 App Store Connect 교차 확인을 추가한다.
+
+## 최신 영수증
+
+- SwiftPM: 12/12
+- Xcode unit: 12/12
+- XCUITest: 1/1, 22.667초
+- 전체: 13/13, 114.094초
+- xcresult: `/private/tmp/ReturnShotFinalDerived/Logs/Test/Test-AppStoreGame-2026.08.18_00-20-57-+0900.xcresult`

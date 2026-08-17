@@ -6,8 +6,20 @@ struct ResultView: View {
 
     var body: some View {
         ZStack {
+            GeometryReader { proxy in
+                Image("ReturnShotBackdrop")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+                    .opacity(model.visualVariant == .impactPop ? 0.78 : 0.62)
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+
             LinearGradient(
-                colors: [.trainNavy, Color(hex: 0x1B2C4C)],
+                colors: [Color(hex: 0x071225).opacity(0.50), Color(hex: 0x0E2238).opacity(0.76), Color(hex: 0x28182E).opacity(0.94)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -15,63 +27,78 @@ struct ResultView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-                    Text(result.completed ? "다음 단계가 열렸어요" : "광고 없이 같은 운행을 바로 다시 할 수 있어요")
+                    Text("같은 구조 · 더 좋은 각도 · 더 높은 기록")
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(Color.exitMint)
-                        .padding(.top, 20)
+                        .padding(.top, 22)
 
-                    VStack(spacing: 4) {
+                    VStack(spacing: 5) {
                         Text(result.headline)
-                            .font(.system(size: 34, weight: .black, design: .rounded))
-                        Text("오늘의 운행 등급")
-                            .foregroundStyle(.white.opacity(0.50))
+                            .font(.system(size: 33, weight: .black, design: .rounded))
+                            .multilineTextAlignment(.center)
+                        Text("점수 · 높이 · LINK 개인 기록")
+                            .foregroundStyle(.white.opacity(0.48))
                     }
+
+                    Text(recordDeltaText)
+                        .font(.system(.headline, design: .rounded, weight: .black))
+                        .foregroundStyle(result.isNewBest ? Color.safetyYellow : Color.white.opacity(0.72))
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 38)
+                        .background(
+                            (result.isNewBest ? Color.alertCoral : Color.white).opacity(0.12),
+                            in: Capsule()
+                        )
+                        .overlay(Capsule().stroke((result.isNewBest ? Color.safetyYellow : Color.white).opacity(0.24)))
+                        .accessibilityIdentifier("recordDeltaLabel")
 
                     ZStack {
                         Circle()
-                            .fill(Color.safetyYellow.opacity(0.15))
-                            .frame(width: 156, height: 156)
+                            .fill(Color.safetyYellow.opacity(0.12))
+                            .frame(width: 110, height: 110)
                         Circle()
-                            .stroke(Color.safetyYellow, lineWidth: 5)
-                            .frame(width: 132, height: 132)
+                            .stroke(
+                                AngularGradient(
+                                    colors: [Color.exitMint, Color.safetyYellow, Color.alertCoral, Color.exitMint],
+                                    center: .center
+                                ),
+                                lineWidth: 6
+                            )
+                            .frame(width: 96, height: 96)
                         Text(result.grade)
-                            .font(.system(size: 82, weight: .black, design: .rounded))
+                            .font(.system(size: 54, weight: .black, design: .rounded))
                             .foregroundStyle(Color.safetyYellow)
                     }
 
-                    VStack(spacing: 8) {
+                    VStack(spacing: 7) {
                         Text(result.score.formatted())
-                            .font(.system(size: 46, weight: .black, design: .rounded))
+                            .font(.system(size: 52, weight: .black, design: .rounded))
                             .contentTransition(.numericText())
-                        Text("BEST  \(model.profile.bestScore.formatted())")
+                        Text("이전 PB  \(result.previousBestScore.formatted())")
                             .font(.system(.caption, design: .monospaced, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.42))
+                            .foregroundStyle(.white.opacity(0.66))
                     }
 
-                    if result.rescueUsed || result.assisted {
-                        HStack(spacing: 7) {
-                            Image(systemName: "lifepreserver.fill")
-                            Text(result.rescueUsed ? "구조 운행 기록" : "혼잡 완화 운행 기록")
-                        }
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Color.exitMint)
+                    Button("같은 구조 다시") {
+                        model.startGame()
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityIdentifier("retryButton")
+
+                    HStack(spacing: 9) {
+                        resultStat(icon: "arrow.up.to.line", title: "최고 높이", value: "\(result.height)m")
+                        resultStat(icon: "burst.fill", title: "최대 콤보", value: "×\(result.maxCombo)")
+                        resultStat(icon: "link", title: "최대 LINK", value: "\(result.maxLink)/5")
                     }
 
-                    HStack(spacing: 10) {
-                        resultStat(icon: "person.2.fill", title: "내린 승객", value: "\(result.exited)명")
-                        resultStat(icon: "equal.circle.fill", title: "연속 정확", value: "×\(result.bestChain)")
-                        resultStat(icon: "person.badge.plus", title: "탄 승객", value: "\(result.boarded)명")
+                    HStack(spacing: 9) {
+                        resultStat(icon: "bolt.fill", title: "공명 폭주", value: "\(result.powerActivations)회")
+                        resultStat(icon: "square.3.layers.3d", title: "파괴·낙하", value: "\(result.destroyedBrickCount)개")
                     }
 
                     VStack(spacing: 12) {
-                        Button(result.completed ? "다음 단계 바로 출발" : "같은 운행 다시") {
-                            model.startGame()
-                        }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .accessibilityIdentifier("retryButton")
-
                         ShareLink(item: result.shareText) {
-                            Label("운행 기록 공유하기", systemImage: "square.and.arrow.up.fill")
+                            Label("기록 공유하기", systemImage: "square.and.arrow.up.fill")
                                 .font(.headline.weight(.heavy))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -82,8 +109,9 @@ struct ResultView: View {
 
                         Button("홈으로") { model.goHome() }
                             .font(.headline.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.58))
-                            .padding(.vertical, 8)
+                            .foregroundStyle(.white.opacity(0.78))
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("resultHomeButton")
                     }
                 }
                 .padding(.horizontal, 20)
@@ -92,15 +120,27 @@ struct ResultView: View {
         }
     }
 
+    private var recordDeltaText: String {
+        if result.isNewBest {
+            return "NEW BEST  +\(result.scoreDeltaFromPreviousBest.formatted())"
+        }
+        if result.scoreDeltaFromPreviousBest < 0 {
+            return "PB까지 \((-result.scoreDeltaFromPreviousBest).formatted())점"
+        }
+        return "PB와 같은 기록"
+    }
+
     private func resultStat(icon: String, title: String, value: String) -> some View {
         VStack(spacing: 7) {
             Image(systemName: icon)
                 .foregroundStyle(Color.exitMint)
             Text(value)
                 .font(.system(.title3, design: .rounded, weight: .heavy))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
             Text(title)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(.white.opacity(0.68))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 15)

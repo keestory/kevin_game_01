@@ -15,7 +15,7 @@
 3. 화면/실행 조정은 `@MainActor AppModel`, 결정론적 규칙은 Foundation 기반 순수 Swift로 분리한다.
 4. 게임 규칙은 SwiftPM에서도 빌드해 빠르게 테스트하되 App Store 산출물의 권위는 Xcode 프로젝트로 둔다.
 5. 프로필은 버전이 있는 JSON으로 UserDefaults에 로컬 저장한다.
-6. 서버와 외부 SDK는 vertical slice에서 제외한다. 광고는 프로토콜과 Debug mock만 두고 Release에서는 unavailable로 처리한다.
+6. 서버, 광고, 분석, 계정과 외부 SDK는 vertical slice에서 제외한다. core 재미·retention Gate 전에는 수익화 경계를 제품 흐름에 노출하지 않는다.
 
 ## 선택 이유
 
@@ -39,7 +39,7 @@
 
 - 외부 의존성 없이 재현 가능한 작은 빌드 표면을 갖는다.
 - 규칙과 렌더링을 분리해 게임 밸런스 테스트가 빠르다.
-- 실제 광고 도입 전에 도메인 계약을 테스트할 수 있다.
+- 게임 규칙과 시각 MVP를 외부 서비스 실패 없이 독립 검증할 수 있다.
 
 비용과 제약:
 

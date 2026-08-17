@@ -2,7 +2,7 @@
 
 ## 1. 서비스 개요
 
-현재 제품은 서버 없는 iOS 앱이다. 운영 표면은 App Store/TestFlight 배포, 앱 크래시, 로컬 진행 데이터, 향후 광고/분석 공급자다. 서버 uptime SLO는 해당 없으며, 현재 telemetry가 없어 crash-free session과 퍼널 지표는 측정할 수 없다.
+현재 제품은 서버 없는 iOS 앱이다. 운영 표면은 App Store/TestFlight 배포, 앱 크래시, 로컬 기록과 향후 분석/외부 공급자다. 서버 uptime SLO는 해당 없으며, 현재 telemetry가 없어 crash-free session과 퍼널 지표는 측정할 수 없다.
 
 ## 2. 지원 환경과 로컬 검증
 
@@ -12,10 +12,10 @@
 
 ```bash
 git status --short --branch
-swift test --scratch-path /private/tmp/kevin-game-spm
+swift test --scratch-path /private/tmp/ReturnShotSwiftPM
 xcodebuild -project AppStoreGame.xcodeproj -scheme AppStoreGame \
-  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath /private/tmp/kevin-game-derived CODE_SIGNING_ALLOWED=NO build
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+  -derivedDataPath /private/tmp/ReturnShotFinalDerived CODE_SIGNING_ALLOWED=NO test
 plutil -lint AppStoreGame/Resources/PrivacyInfo.xcprivacy AppStoreGame/Info.plist
 ```
 
@@ -46,12 +46,12 @@ plutil -lint AppStoreGame/Resources/PrivacyInfo.xcprivacy AppStoreGame/Info.plis
 |---|---|---|
 | 앱 시작 crash | build/OS/기기, crash stack, migration 입력 | 이전 안정 버전 출시 중단/rollback; 저장을 무조건 삭제하지 않음 |
 | 진행 기록 초기화 | 앱 업데이트/삭제, payload version, save 오류 | 원본 payload 보존 후 migration hotfix; 허위 복구 약속 금지 |
-| 게임 시간이 background에서 진행 | scenePhase, snapshot phase, 광고 callback 시각 | 해당 릴리스 중단; foreground 명시 재개 수정 |
-| 광고 보상 중복/누락 | placement, 익명 run ID, impression ID, callback 순서 | 광고 placement kill switch; 게임 기본 루프는 유지 |
-| 광고 로드 실패 | SDK/네트워크/재고 상태 | 보상 선택지만 unavailable 처리; 앱 시작/게임을 차단하지 않음 |
+| 게임 시간이 background에서 진행 | scenePhase, snapshot phase, lastUpdateTime | 해당 릴리스 중단; foreground 명시 재개 수정 |
+| 점수·충돌 중복/공 관통 | seed, tick, input, event order, checksum | 해당 build 중단; fixture와 replay 증거 추가 |
+| LINK·마이너스 판정 불일치 | direct contact, removal cause, support graph | 규칙/렌더 edge 대조, duplicate event 회귀 추가 |
 | 개인정보 불일치 | archive SDK, 실제 요청 domain, manifest/label | SDK 초기화/광고 중단, Privacy incident 절차 진입 |
 
-현재 Release 광고는 unavailable이라 원격 kill switch가 없다. 실제 SDK를 추가할 때 앱 업데이트 없이 비활성화할 수 있는 최소 구성과 안전한 기본값을 필수로 한다.
+외부 SDK를 추가할 때 앱 업데이트 없이 비활성화할 수 있는 최소 구성과 안전한 기본값을 필수로 한다.
 
 ## 6. 로컬 데이터 초기화
 
@@ -59,9 +59,9 @@ QA에서는 전용 UserDefaults suite 또는 앱 삭제를 사용한다. 운영 
 
 ## 7. 관측과 출시 중단 기준
 
-현재 관측성은 부재하므로 정량 자동 중단이 불가능하다(P1). 출시 전 최소한 다음을 익명·버전형 이벤트 또는 App Store 지표로 검증한다: app_start, run_start, first_success, rescue_offer, rescue_outcome, run_finish, fatal/nonfatal 오류. 개인정보 없이 build, schema version, state, error category만 기록한다.
+현재 관측성은 부재하므로 정량 자동 중단이 불가능하다(P1). 출시 전 최소한 다음을 익명·버전형 이벤트 또는 App Store 지표로 검증한다: app_start, run_start, first_return, link_five, power_activate, run_finish, retry, fatal/nonfatal 오류. 개인정보 없이 build, schema version, state, error category만 기록한다.
 
-제안 초기 중단 기준은 기준선 대비 crash-free sessions 급락, 시작 불가 P0 재현, 진행 유실 P1 다수, 보상 무결성 오류, 선언하지 않은 데이터 전송 중 하나다. 정확한 수치는 TestFlight 기준선을 얻은 뒤 소유자와 승인한다(현재 Unknown).
+제안 초기 중단 기준은 기준선 대비 crash-free sessions 급락, 시작 불가 P0 재현, 기록 유실 P1 다수, 규칙 무결성 오류, 선언하지 않은 데이터 전송 중 하나다. 정확한 수치는 TestFlight 기준선을 얻은 뒤 소유자와 승인한다(현재 Unknown).
 
 ## 8. 롤백
 

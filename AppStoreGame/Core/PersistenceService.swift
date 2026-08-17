@@ -5,8 +5,8 @@ final class PersistenceService {
     static let shared = PersistenceService()
 
     private let defaults: UserDefaults
-    private let profileKey = "oneMoreCar.playerProfile.v1"
-    private let recoveryKey = "oneMoreCar.playerProfile.recovery"
+    private let profileKey = "returnShot.playerProfile.v1"
+    private let recoveryKey = "returnShot.playerProfile.recovery"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

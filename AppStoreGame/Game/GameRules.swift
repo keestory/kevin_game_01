@@ -1,614 +1,710 @@
 import Foundation
 
-struct TrainBoard: Equatable {
-    static let columnCount = 5
-    static let rowCount = 7
-
-    private(set) var columns: [[PassengerKind]] = Array(
-        repeating: [],
-        count: TrainBoard.columnCount
-    )
-
-    subscript(_ position: GridPosition) -> PassengerKind? {
-        guard columns.indices.contains(position.column),
-              columns[position.column].indices.contains(position.row) else { return nil }
-        return columns[position.column][position.row]
-    }
-
-    var occupiedCount: Int { columns.reduce(0) { $0 + $1.count } }
-
-    func isFull(column: Int) -> Bool {
-        guard columns.indices.contains(column) else { return true }
-        return columns[column].count >= Self.rowCount
-    }
-
-    mutating func place(_ kind: PassengerKind, in column: Int) -> PlacementResolution {
-        guard columns.indices.contains(column), !isFull(column: column) else {
-            return PlacementResolution(
-                placed: false,
-                overflowed: true,
-                removedCount: 0,
-                cascadeCount: 0,
-                scoreGained: 0
-            )
-        }
-
-        columns[column].append(kind)
-        var totalRemoved = 0
-        var cascade = 0
-        var score = 10
-
-        while let group = firstMatch() {
-            cascade += 1
-            totalRemoved += group.count
-            let base = 100 + max(0, group.count - 3) * 60
-            let multiplier = min(3.0, 1.0 + Double(cascade - 1) * 0.25)
-            score += Int(Double(base) * multiplier)
-            remove(group)
-        }
-
-        return PlacementResolution(
-            placed: true,
-            overflowed: false,
-            removedCount: totalRemoved,
-            cascadeCount: cascade,
-            scoreGained: score
-        )
-    }
-
-    @discardableResult
-    mutating func removeTopPassengers(from column: Int, count: Int) -> Int {
-        guard columns.indices.contains(column), count > 0 else { return 0 }
-        let removed = min(count, columns[column].count)
-        guard removed > 0 else { return 0 }
-        columns[column].removeLast(removed)
-        return removed
-    }
-
-    @discardableResult
-    mutating func rescueTallestColumns(columnCount: Int = 2, removeEach: Int = 2) -> Int {
-        let targets = columns.indices
-            .filter { !columns[$0].isEmpty }
-            .sorted {
-                if columns[$0].count == columns[$1].count { return $0 < $1 }
-                return columns[$0].count > columns[$1].count
-            }
-            .prefix(max(0, columnCount))
-
-        return targets.reduce(into: 0) { removed, column in
-            removed += removeTopPassengers(from: column, count: removeEach)
-        }
-    }
-
-    private func firstMatch() -> Set<GridPosition>? {
-        for destination in PassengerKind.destinations {
-            var visited = Set<GridPosition>()
-            for column in columns.indices {
-                for row in columns[column].indices {
-                    let start = GridPosition(column: column, row: row)
-                    guard !visited.contains(start), isCompatible(start, destination: destination) else { continue }
-                    let group = connectedGroup(from: start, destination: destination, visited: &visited)
-                    let hasDestination = group.contains { self[$0] == destination }
-                    if group.count >= 3, hasDestination {
-                        return group
-                    }
-                }
-            }
-        }
-        return nil
-    }
-
-    private func connectedGroup(
-        from start: GridPosition,
-        destination: PassengerKind,
-        visited: inout Set<GridPosition>
-    ) -> Set<GridPosition> {
-        var queue = [start]
-        var group = Set<GridPosition>()
-        visited.insert(start)
-
-        while !queue.isEmpty {
-            let current = queue.removeFirst()
-            group.insert(current)
-            let neighbors = [
-                GridPosition(column: current.column - 1, row: current.row),
-                GridPosition(column: current.column + 1, row: current.row),
-                GridPosition(column: current.column, row: current.row - 1),
-                GridPosition(column: current.column, row: current.row + 1)
-            ]
-            for neighbor in neighbors where !visited.contains(neighbor) {
-                guard isCompatible(neighbor, destination: destination) else { continue }
-                visited.insert(neighbor)
-                queue.append(neighbor)
-            }
-        }
-        return group
-    }
-
-    private func isCompatible(_ position: GridPosition, destination: PassengerKind) -> Bool {
-        guard let kind = self[position] else { return false }
-        return kind == destination || kind == .transfer
-    }
-
-    private mutating func remove(_ positions: Set<GridPosition>) {
-        for column in columns.indices {
-            let rows = positions
-                .filter { $0.column == column }
-                .map(\.row)
-                .sorted(by: >)
-            for row in rows where columns[column].indices.contains(row) {
-                columns[column].remove(at: row)
-            }
-        }
-    }
-}
-
 enum GameRules {
-    static let routingStationCount = 5
-    static let routingQueueCount = 10
-    static let routingDoorCount = 4
-    static let routingPassengerTargetPerDestination = 3
-    static let countStationCount = 5
-    static let countPassengerCapacity = 24
+    static let tickRate = 120
+    static let tickDuration = 1.0 / Double(tickRate)
+    static let fieldWidth = 390.0
+    static let fieldHeight = 844.0
+    static let sideWall = 22.0
+    // The reserved HUD/coachmark band begins above this boundary on every
+    // supported portrait size, so the authoritative ball can never pass behind UI.
+    static let topWall = 540.0
+    static let missLine = 42.0
+    static let paddleY = 92.0
+    static let paddleWidth = 108.0
+    static let paddleHeight = 18.0
+    static let maximumPaddleSpeed = 720.0
+    static let powerDurationTicks = 6 * tickRate
+    static let comboGraceDurationTicks = Int(1.6 * Double(tickRate))
 
-    /// 자동 하차 후 한 명씩 탑승하는 5역 인원 맞추기 계획을 seed로 재현한다.
-    /// 성공 경로에서는 다음 역의 시작 인원이 이전 역 목표 인원과 같다.
-    static func countRunPlan(seed: UInt64, difficulty: StageDifficulty) -> CountRunPlan {
-        let difficultySalt = UInt64(truncatingIfNeeded: max(1, difficulty.stage))
-            &* 0xD1B5_4A32_D192_ED03
-        var rng = SeededRandom(seed: seed ^ difficultySalt)
-        var nextInitialOnboard = rng.int(in: 10...14)
-        var nextEventID = 0
+    private enum CollisionKind: Equatable {
+        case wall
+        case paddle
+        case brick(Int)
+    }
 
-        let stations = (1...countStationCount).map { stationIndex in
-            let initialOnboard = nextInitialOnboard
-            let maximumExit = min(6, initialOnboard - 2)
-            let exitCount = rng.int(in: 3...maximumExit)
-            let onboardAfterExit = initialOnboard - exitCount
-            let maximumBoardToTarget = min(
-                5,
-                countPassengerCapacity - 1 - onboardAfterExit
-            )
-            let boardToTarget = rng.int(in: 3...maximumBoardToTarget)
-            let targetOnboard = onboardAfterExit + boardToTarget
-            let passengersAfterTarget = min(
-                rng.int(in: 1...2),
-                countPassengerCapacity - targetOnboard
-            )
-            let totalBoarding = boardToTarget + passengersAfterTarget
-            let targetHoldByStation = [1_200, 950, 800, 700, 600]
-            let minimumTargetHold = targetHoldByStation[stationIndex - 1]
+    private struct Collision: Equatable {
+        let time: Double
+        let normal: ShotVector
+        let kind: CollisionKind
+        let priority: Int
+        let stableID: Int
+    }
 
-            var events: [PassengerFlowEvent] = []
-            var eventTime = rng.int(in: 180...300)
-            var remainingExit = exitCount
-            while remainingExit > 0 {
-                let burstSize = min(remainingExit, rng.int(in: 1...3))
-                events.append(
-                    PassengerFlowEvent(
-                        id: nextEventID,
-                        offsetMilliseconds: eventTime,
-                        direction: .exit,
-                        passengerCount: burstSize,
-                        visualSeed: rng.next()
+    static func initialReturnShotState(seed: UInt64) -> ReturnShotState {
+        let speed = 370.0
+        let direction = ShotVector(x: 0.18, y: 0.98).normalized()
+        return ReturnShotState(
+            seed: seed,
+            ball: ShotBall(
+                position: ShotVector(x: fieldWidth / 2, y: 190),
+                velocity: direction.scaled(by: speed),
+                radius: 10
+            ),
+            paddleX: fieldWidth / 2,
+            paddleTargetX: fieldWidth / 2,
+            bricks: returnShotBricks(seed: seed, segment: 0)
+        )
+    }
+
+    static func returnShotBricks(seed: UInt64, segment: Int) -> [ShotBrick] {
+        let segmentSalt = UInt64(truncatingIfNeeded: segment) &* 0xD1B5_4A32_D192_ED03
+        var rng = SeededRandom(seed: seed ^ segmentSalt)
+        let columnCount = 6
+        let rowCount = 5
+        let startX = 49.0
+        let startY = 280.0
+        let spacingX = 58.0
+        let spacingY = 52.0
+
+        var bricks: [ShotBrick] = []
+        for row in 0..<rowCount {
+            for column in 0..<columnCount {
+                let id = segment * 1_000 + row * 10 + column
+                let role: ShotBrickRole
+                if row == 0 {
+                    role = .support
+                } else if (row == 2 && column == 1) || (row == 4 && column == 2) {
+                    role = .prism
+                } else if (row == 3 && column == 4) || (row == 4 && column == 5) {
+                    role = .negative
+                } else {
+                    role = .normal
+                }
+
+                let signature: BrickSignature?
+                if role == .support || role == .negative {
+                    signature = nil
+                } else if segment == 0, row <= 2 {
+                    signature = BrickSignature(
+                        color: .mint,
+                        pattern: BrickPattern.allCases[(row + column) % BrickPattern.allCases.count],
+                        mark: BrickMark.allCases[(row * 2 + column) % BrickMark.allCases.count]
+                    )
+                } else {
+                    signature = BrickSignature(
+                        color: BrickColor.allCases[rng.int(in: 0...(BrickColor.allCases.count - 1))],
+                        pattern: BrickPattern.allCases[rng.int(in: 0...(BrickPattern.allCases.count - 1))],
+                        mark: BrickMark.allCases[rng.int(in: 0...(BrickMark.allCases.count - 1))]
+                    )
+                }
+
+                let maximumHitPoints: Int
+                switch role {
+                case .normal: maximumHitPoints = 1
+                case .support: maximumHitPoints = 2
+                case .prism: maximumHitPoints = 3
+                case .negative: maximumHitPoints = Int.max
+                }
+
+                var supportIDs: [Int] = []
+                if row > 0 {
+                    supportIDs.append(segment * 1_000 + (row - 1) * 10 + column)
+                    let adjacentColumn = column == 0 ? 1 : column - 1
+                    supportIDs.append(segment * 1_000 + (row - 1) * 10 + adjacentColumn)
+                }
+
+                bricks.append(
+                    ShotBrick(
+                        id: id,
+                        rect: ShotRect(
+                            center: ShotVector(
+                                x: startX + Double(column) * spacingX,
+                                y: startY + Double(row) * spacingY
+                            ),
+                            width: role == .support ? 50 : 48,
+                            height: role == .support ? 28 : 38
+                        ),
+                        signature: signature,
+                        role: role,
+                        maximumHitPoints: maximumHitPoints,
+                        hitPoints: maximumHitPoints,
+                        supportIDs: Array(Set(supportIDs)).sorted(),
+                        anchored: row == 0
                     )
                 )
-                nextEventID += 1
-                remainingExit -= burstSize
-                eventTime += rng.int(in: 180...390)
+            }
+        }
+        return bricks.sorted { $0.id < $1.id }
+    }
+
+    /// 권위 시뮬레이션을 정확히 한 120Hz tick 진행한다.
+    @discardableResult
+    static func stepReturnShot(
+        state: inout ReturnShotState,
+        paddleTargetX: Double
+    ) -> [ShotSimulationEvent] {
+        guard state.phase == .playing else { return [] }
+        var events: [ShotSimulationEvent] = []
+        state.tick += 1
+
+        let clampedTarget = min(
+            fieldWidth - sideWall - paddleWidth / 2,
+            max(sideWall + paddleWidth / 2, paddleTargetX)
+        )
+        state.paddleTargetX = clampedTarget
+        let maximumPaddleDelta = maximumPaddleSpeed * tickDuration
+        let desiredDelta = clampedTarget - state.paddleX
+        let paddleDelta = min(maximumPaddleDelta, max(-maximumPaddleDelta, desiredDelta))
+        state.paddleX += paddleDelta
+        state.paddleVelocity = paddleDelta / tickDuration
+
+        if state.comboGraceTicks > 0 {
+            state.comboGraceTicks -= 1
+            if state.comboGraceTicks == 0, state.combo > 0 {
+                state.combo = 0
+                events.append(.comboChanged(0))
+            }
+        }
+        if state.returnShotTicks > 0 { state.returnShotTicks -= 1 }
+        if state.powerTicks > 0 {
+            state.powerTicks -= 1
+            if state.powerTicks == 0 {
+                state.link = AttributeLinkState()
+                state.feedback = "폭주 종료 · 새 LINK 시작"
+                events.append(.powerExpired)
+                events.append(.linkChanged(state.link))
+            }
+        }
+
+        var remainingTime = tickDuration
+        var collisionIterations = 0
+        while remainingTime > 0.000_000_1, collisionIterations < 8 {
+            collisionIterations += 1
+            let movement = state.ball.velocity.scaled(by: remainingTime)
+            guard let collision = firstCollision(state: state, movement: movement) else {
+                state.ball.position.x += movement.x
+                state.ball.position.y += movement.y
+                remainingTime = 0
+                break
             }
 
-            eventTime += rng.int(in: 260...460)
-            for boardingIndex in 1...totalBoarding {
-                events.append(
-                    PassengerFlowEvent(
-                        id: nextEventID,
-                        offsetMilliseconds: eventTime,
-                        direction: .board,
-                        passengerCount: 1,
-                        visualSeed: rng.next()
-                    )
-                )
-                nextEventID += 1
-                if boardingIndex == boardToTarget {
-                    eventTime += minimumTargetHold + rng.int(in: 0...260)
+            state.ball.position.x += movement.x * collision.time
+            state.ball.position.y += movement.y * collision.time
+            remainingTime *= max(0, 1 - collision.time)
+
+            switch collision.kind {
+            case .wall:
+                reflect(velocity: &state.ball.velocity, normal: collision.normal)
+                normalizeBallSpeed(state: &state)
+                nudgeBall(state: &state, normal: collision.normal)
+            case .paddle:
+                let edgeShot = reflectFromPaddle(state: &state)
+                events.append(.paddleReturn(edgeShot: edgeShot))
+                nudgeBall(state: &state, normal: ShotVector(x: 0, y: 1))
+            case .brick(let brickID):
+                let outcome = resolveDirectBrickContact(state: &state, brickID: brickID)
+                events.append(contentsOf: outcome.events)
+                if outcome.shouldReflect {
+                    reflect(velocity: &state.ball.velocity, normal: collision.normal)
+                    normalizeBallSpeed(state: &state)
+                    nudgeBall(state: &state, normal: collision.normal)
                 } else {
-                    eventTime += rng.int(in: 230...510)
+                    let direction = state.ball.velocity.normalized()
+                    state.ball.position.x += direction.x * 0.05
+                    state.ball.position.y += direction.y * 0.05
                 }
             }
+        }
 
-            let plan = StationCountPlan(
-                index: stationIndex,
-                initialOnboard: initialOnboard,
-                targetOnboard: targetOnboard,
-                capacity: countPassengerCapacity,
-                deadlineMilliseconds: eventTime + 700,
-                minimumTargetHoldMilliseconds: minimumTargetHold,
-                events: events
+        if state.ball.position.y + state.ball.radius < missLine {
+            state.phase = .finished
+            state.feedback = "공이 패들 아래로 떨어졌어요"
+            events.append(.missed)
+        }
+
+        if state.phase == .playing,
+           !state.bricks.contains(where: { !$0.isRemoved && $0.role != .negative }) {
+            state.segment += 1
+            state.height += 10
+            state.bricks = returnShotBricks(seed: state.seed, segment: state.segment)
+            state.feedback = "\(state.height)m 돌파 · 새 구조"
+            events.append(.segmentAdvanced(state.segment))
+        }
+
+        return events
+    }
+
+    static func reflectionVelocity(
+        contactOffset: Double,
+        paddleVelocity: Double,
+        speed: Double
+    ) -> ShotVector {
+        let clampedOffset = min(1, max(-1, contactOffset))
+        let normalizedPaddleVelocity = min(1, max(-1, paddleVelocity / maximumPaddleSpeed))
+        let angleDegrees = min(62, max(-62, clampedOffset * 42 + normalizedPaddleVelocity * 20))
+        let radians = angleDegrees * .pi / 180
+        return ShotVector(
+            x: sin(radians) * speed,
+            y: max(cos(radians) * speed, speed * 0.46)
+        ).normalized().scaled(by: speed)
+    }
+
+    @discardableResult
+    static func updateAttributeLink(
+        state: inout ReturnShotState,
+        signature: BrickSignature
+    ) -> Int {
+        let previous = state.link.previousSignature
+        let colorMatched = previous?.color == signature.color
+        let patternMatched = previous?.pattern == signature.pattern
+        let markMatched = previous?.mark == signature.mark
+
+        state.link.colorCount = colorMatched ? state.link.colorCount + 1 : 1
+        state.link.patternCount = patternMatched ? state.link.patternCount + 1 : 1
+        state.link.markCount = markMatched ? state.link.markCount + 1 : 1
+        state.link.previousSignature = signature
+        state.maxLink = max(state.maxLink, state.link.highestCount)
+
+        if !state.isPowerActive,
+           state.link.colorCount == 5 || state.link.patternCount == 5 || state.link.markCount == 5 {
+            state.powerTicks = powerDurationTicks
+            state.powerActivations += 1
+            state.feedback = "공명 폭주! 6초 관통"
+        }
+
+        return [colorMatched, patternMatched, markMatched].filter { $0 }.count
+    }
+
+    /// 테스트와 scene이 동일한 contact transaction을 사용한다.
+    static func resolveDirectBrickContact(
+        state: inout ReturnShotState,
+        brickID: Int
+    ) -> (events: [ShotSimulationEvent], shouldReflect: Bool) {
+        guard let index = state.bricks.firstIndex(where: { $0.id == brickID && !$0.isRemoved }) else {
+            return ([], false)
+        }
+
+        if state.bricks[index].role == .negative {
+            return resolveNegativeContact(state: &state, index: index)
+        }
+
+        var events: [ShotSimulationEvent] = []
+        let role = state.bricks[index].role
+        let firstEligibleContact = state.bricks[index].signature != nil
+            && !state.bricks[index].eligibleContactRecorded
+        var attributeMatchCount = 0
+        if firstEligibleContact, let signature = state.bricks[index].signature {
+            attributeMatchCount = updateAttributeLink(state: &state, signature: signature)
+            state.bricks[index].eligibleContactRecorded = true
+            events.append(.linkChanged(state.link))
+            if state.powerTicks == powerDurationTicks {
+                events.append(.powerActivated)
+            }
+        }
+
+        let hitNumber = state.bricks[index].maximumHitPoints - state.bricks[index].hitPoints + 1
+        let damage = state.isPowerActive && (role == .support || role == .prism) ? 2 : 1
+        state.bricks[index].hitPoints = max(0, state.bricks[index].hitPoints - damage)
+
+        let contactPoints: Int
+        switch role {
+        case .normal:
+            contactPoints = 0
+        case .support:
+            contactPoints = 40
+        case .prism:
+            contactPoints = [80, 140, 240][min(2, max(0, hitNumber - 1))]
+        case .negative:
+            contactPoints = 0
+        }
+        let directPoints = scoredDirectPoints(
+            base: contactPoints,
+            attributeMatchCount: attributeMatchCount,
+            state: state
+        )
+        state.score += Int64(directPoints)
+        events.append(.brickHit(id: brickID, remainingHitPoints: state.bricks[index].hitPoints))
+
+        var removedDirectly = false
+        if state.bricks[index].hitPoints == 0 {
+            state.bricks[index].isRemoved = true
+            removedDirectly = true
+            let completionBase: Int
+            switch role {
+            case .normal: completionBase = 50
+            case .support: completionBase = 120
+            case .prism: completionBase = 300
+            case .negative: completionBase = 0
+            }
+            advanceCombo(state: &state, events: &events)
+            let completionPoints = scoredDirectPoints(
+                base: completionBase,
+                attributeMatchCount: attributeMatchCount,
+                state: state
             )
-            nextInitialOnboard = targetOnboard
-            return plan
+            state.score += Int64(completionPoints)
+            state.height += role == .support ? 2 : 1
+            state.destroyedBrickCount += 1
+            state.feedback = role == .prism
+                ? "프리즘 완파 +\(completionPoints)"
+                : "콤보 ×\(state.combo) · +\(completionPoints)"
+            events.append(.brickRemoved(id: brickID, cause: .direct, points: completionPoints))
+            events.append(contentsOf: collapseUnsupported(state: &state))
+        } else if role == .prism {
+            state.feedback = "프리즘 \(state.bricks[index].hitPoints)겹 남음"
+        } else if role == .support {
+            state.feedback = "지지점 \(state.bricks[index].hitPoints)회 남음"
         }
 
-        return CountRunPlan(seed: seed, stations: stations)
+        if state.isPowerActive {
+            events.append(contentsOf: applyPowerShockwave(state: &state, around: brickID))
+        }
+
+        let shouldReflect = !(state.isPowerActive && role == .normal && removedDirectly)
+        return (events, shouldReflect)
     }
 
-    static func initialCountFlowState(for plan: StationCountPlan) -> CountFlowState {
-        CountFlowState(
-            stationIndex: plan.index,
-            elapsedMilliseconds: 0,
-            onboardCount: plan.initialOnboard,
-            nextEventIndex: 0,
-            countRevision: 0,
-            phase: plan.exitEvents.isEmpty ? .boarding : .automaticExit
-        )
-    }
+    static func collapseUnsupported(state: inout ReturnShotState) -> [ShotSimulationEvent] {
+        var events: [ShotSimulationEvent] = []
+        var fellAnyPositive = false
 
-    /// 절대 역 경과 시간까지 모든 임계 이벤트를 순서대로 정확히 한 번 적용한다.
-    /// 같은 시간이나 과거 시간으로 반복 호출해도 이미 적용한 이벤트는 다시 적용하지 않는다.
-    static func advanceFlow(
-        state: CountFlowState,
-        throughMilliseconds requestedMilliseconds: Int,
-        plan: StationCountPlan
-    ) -> FlowAdvance {
-        guard state.phase != .doorsClosed, state.phase != .timedOut else {
-            return FlowAdvance(state: state, appliedEvents: [])
-        }
+        while true {
+            let removedIDs = Set(state.bricks.filter(\.isRemoved).map(\.id))
+            let unsupportedIndices = state.bricks.indices
+                .filter { index in
+                    let brick = state.bricks[index]
+                    return !brick.isRemoved
+                        && !brick.anchored
+                        && !brick.supportIDs.isEmpty
+                        && brick.supportIDs.allSatisfy { removedIDs.contains($0) }
+                }
+                .sorted { state.bricks[$0].id < state.bricks[$1].id }
+            guard !unsupportedIndices.isEmpty else { break }
 
-        let targetMilliseconds = min(
-            plan.deadlineMilliseconds,
-            max(state.elapsedMilliseconds, requestedMilliseconds)
-        )
-        var onboardCount = state.onboardCount
-        var nextEventIndex = state.nextEventIndex
-        var countRevision = state.countRevision
-        var appliedEvents: [PassengerFlowEvent] = []
-
-        while plan.events.indices.contains(nextEventIndex) {
-            let event = plan.events[nextEventIndex]
-            guard event.offsetMilliseconds <= targetMilliseconds else { break }
-            let delta = event.direction == .exit
-                ? -event.passengerCount
-                : event.passengerCount
-            onboardCount += delta
-            countRevision += 1
-            nextEventIndex += 1
-            appliedEvents.append(event)
-        }
-
-        let phase: PassengerFlowPhase
-        if targetMilliseconds >= plan.deadlineMilliseconds {
-            phase = .timedOut
-        } else if plan.events.dropFirst(nextEventIndex).contains(where: { $0.direction == .exit }) {
-            phase = .automaticExit
-        } else {
-            phase = .boarding
-        }
-
-        return FlowAdvance(
-            state: CountFlowState(
-                stationIndex: state.stationIndex,
-                elapsedMilliseconds: targetMilliseconds,
-                onboardCount: onboardCount,
-                nextEventIndex: nextEventIndex,
-                countRevision: countRevision,
-                phase: phase
-            ),
-            appliedEvents: appliedEvents
-        )
-    }
-
-    /// UI가 관찰한 revision과 현재 revision이 같을 때만 닫힘을 판정한다.
-    /// stale 또는 자동 하차 중 입력은 문을 닫지 않으며 점수 판정도 하지 않는다.
-    static func resolveDoorClose(
-        state: CountFlowState,
-        plan: StationCountPlan,
-        observedCountRevision: Int
-    ) -> DoorCloseResolution {
-        let isCurrent = observedCountRevision == state.countRevision
-        let canResolve = (state.phase == .boarding || state.phase == .timedOut) && isCurrent
-        let delta = state.onboardCount - plan.targetOnboard
-        let result: CloseDoorResult
-        if !canResolve {
-            result = .stale
-        } else if delta == 0 {
-            result = .exact
-        } else if delta < 0 {
-            result = .under(by: -delta)
-        } else {
-            result = .over(by: delta)
-        }
-
-        return DoorCloseResolution(
-            result: result,
-            onboardCount: state.onboardCount,
-            targetOnboardCount: plan.targetOnboard,
-            observedRevision: observedCountRevision,
-            actualRevision: state.countRevision
-        )
-    }
-
-    /// ProductSpec revision 2의 5역·10큐 계획을 seed만으로 재현한다.
-    ///
-    /// 두 목적지는 2명+1명 큐, 나머지 두 목적지는 1명 큐 세 개로 구성한다.
-    /// 다섯 역의 두 큐는 서로 다른 목적지를 가지며 모든 역의 네 문에는 네 목적지가
-    /// 정확히 한 번씩 배치되므로 광고나 구매 없이 항상 해결할 수 있다.
-    static func routingRunPlan(seed: UInt64) -> RoutingRunPlan {
-        var rng = SeededRandom(seed: seed)
-        let shuffledDestinations = shuffled(PassengerKind.destinations, using: &rng)
-        let twoQueueDestinations = Array(shuffledDestinations.prefix(2))
-        let threeQueueDestinations = Array(shuffledDestinations.suffix(2))
-
-        let first = twoQueueDestinations[0]
-        let second = twoQueueDestinations[1]
-        let third = threeQueueDestinations[0]
-        let fourth = threeQueueDestinations[1]
-
-        var stationPairs: [[PassengerKind]] = [
-            [first, third],
-            [first, fourth],
-            [second, third],
-            [second, fourth],
-            [third, fourth]
-        ]
-        stationPairs = shuffled(stationPairs, using: &rng)
-
-        var doubledOccurrence: [PassengerKind: Int] = [:]
-        for destination in twoQueueDestinations {
-            doubledOccurrence[destination] = rng.int(in: 0...1)
-        }
-        var occurrence: [PassengerKind: Int] = [:]
-        var nextQueueID = 0
-
-        let stations = stationPairs.enumerated().map { stationOffset, pair in
-            var stationQueues = pair.map { destination in
-                let destinationOccurrence = occurrence[destination, default: 0]
-                occurrence[destination] = destinationOccurrence + 1
-                let passengerCount = doubledOccurrence[destination] == destinationOccurrence ? 2 : 1
-                defer { nextQueueID += 1 }
-                return RoutingQueue(
-                    id: nextQueueID,
-                    stationIndex: stationOffset + 1,
-                    positionInStation: 0,
-                    destination: destination,
-                    passengerCount: passengerCount
+            for index in unsupportedIndices {
+                guard !state.bricks[index].isRemoved else { continue }
+                state.bricks[index].isRemoved = true
+                state.destroyedBrickCount += 1
+                let role = state.bricks[index].role
+                let points: Int
+                switch role {
+                case .negative:
+                    points = 120
+                    state.height += 3
+                    state.feedback = "위험 제거 +120"
+                    events.append(.cleanDrop(id: state.bricks[index].id, points: points))
+                case .prism:
+                    points = 120
+                    state.height += 2
+                    fellAnyPositive = true
+                case .normal, .support:
+                    points = 45
+                    state.height += 1
+                    fellAnyPositive = true
+                }
+                state.score += Int64(points)
+                events.append(
+                    .brickRemoved(
+                        id: state.bricks[index].id,
+                        cause: .unsupportedFall,
+                        points: points
+                    )
                 )
             }
-            if rng.int(in: 0...1) == 1 {
-                stationQueues.reverse()
-            }
-            stationQueues = stationQueues.enumerated().map { position, queue in
-                RoutingQueue(
-                    id: queue.id,
-                    stationIndex: queue.stationIndex,
-                    positionInStation: position,
-                    destination: queue.destination,
-                    passengerCount: queue.passengerCount
+        }
+
+        if fellAnyPositive {
+            advanceCombo(state: &state, events: &events)
+        }
+        return events
+    }
+
+    static func checksum(_ state: ReturnShotState) -> UInt64 {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        func mix(_ value: UInt64) {
+            hash ^= value
+            hash &*= 0x1000_0000_01b3
+        }
+        mix(UInt64(state.tick))
+        mix(UInt64(bitPattern: Int64((state.ball.position.x * 1_000).rounded())))
+        mix(UInt64(bitPattern: Int64((state.ball.position.y * 1_000).rounded())))
+        mix(UInt64(bitPattern: Int64((state.ball.velocity.x * 1_000).rounded())))
+        mix(UInt64(bitPattern: Int64((state.ball.velocity.y * 1_000).rounded())))
+        mix(UInt64(bitPattern: state.score))
+        mix(UInt64(state.height))
+        mix(UInt64(state.combo))
+        mix(UInt64(state.link.colorCount))
+        mix(UInt64(state.link.patternCount))
+        mix(UInt64(state.link.markCount))
+        mix(UInt64(state.powerTicks))
+        for brick in state.bricks.sorted(by: { $0.id < $1.id }) {
+            mix(UInt64(brick.id))
+            mix(UInt64(brick.hitPoints == Int.max ? UInt32.max : UInt32(max(0, brick.hitPoints))))
+            mix(brick.isRemoved ? 1 : 0)
+            mix(UInt64(brick.penaltyHits))
+        }
+        return hash
+    }
+
+    private static func firstCollision(
+        state: ReturnShotState,
+        movement: ShotVector
+    ) -> Collision? {
+        var candidates: [Collision] = []
+        let radius = state.ball.radius
+        let start = state.ball.position
+
+        if movement.x < 0 {
+            let time = (sideWall + radius - start.x) / movement.x
+            if (0...1).contains(time) {
+                candidates.append(
+                    Collision(time: time, normal: ShotVector(x: 1, y: 0), kind: .wall, priority: 2, stableID: 0)
                 )
             }
-
-            return RoutingStationPlan(
-                index: stationOffset + 1,
-                doorOrder: shuffled(PassengerKind.destinations, using: &rng),
-                queues: stationQueues
-            )
-        }
-
-        return RoutingRunPlan(seed: seed, stations: stations)
-    }
-
-    /// 좌우 한 칸 이동을 네 문 범위 안에서 clamp한다.
-    static func moveDoorSelection(
-        current: Int,
-        move: DoorSelectionMove,
-        doorCount: Int = routingDoorCount
-    ) -> Int {
-        guard doorCount > 0 else { return 0 }
-        let clampedCurrent = min(doorCount - 1, max(0, current))
-        let offset = move == .left ? -1 : 1
-        return min(doorCount - 1, max(0, clampedCurrent + offset))
-    }
-
-    /// 선택 문과 현재 큐의 목적지를 비교한다. 잘못된 문이나 범위 밖 선택은 큐를 소비하지 않는다.
-    static func resolveRouting(
-        queue: RoutingQueue,
-        selectedDoorIndex: Int,
-        doorOrder: [PassengerKind]
-    ) -> RoutingResolution {
-        let selectedDestination = doorOrder.indices.contains(selectedDoorIndex)
-            ? doorOrder[selectedDoorIndex]
-            : nil
-        let isCorrect = selectedDestination == queue.destination
-        return RoutingResolution(
-            outcome: isCorrect ? .correct : .wrong,
-            queueID: queue.id,
-            selectedDoorIndex: selectedDoorIndex,
-            selectedDestination: selectedDestination,
-            expectedDestination: queue.destination,
-            completedPassengerCount: isCorrect ? queue.passengerCount : 0
-        )
-    }
-
-    static func stageDifficulty(stage: Int, consecutiveFailures: Int = 0) -> StageDifficulty {
-        let level = max(1, stage)
-        let base: (TimeInterval, Int, Double, Int, Int, Int)
-
-        switch level {
-        case 1:
-            base = (32, 250, 1.35, 3, 6, 3)
-        case 2:
-            base = (35, 420, 1.28, 3, 7, 3)
-        case 3:
-            base = (38, 620, 1.20, 3, 7, 3)
-        case 4:
-            base = (42, 850, 1.12, 3, 8, 2)
-        case 5:
-            base = (45, 1_100, 1.05, 3, 8, 2)
-        case 6:
-            base = (48, 1_350, 1.00, 4, 9, 1)
-        case 7...10:
-            base = (
-                min(60, 48 + TimeInterval(level - 6) * 3),
-                1_350 + (level - 6) * 300,
-                max(0.82, 1.0 - Double(level - 6) * 0.045),
-                4,
-                min(11, 9 + (level - 6) / 2),
-                1
-            )
-        default:
-            base = (
-                60,
-                2_550 + (level - 10) * 340,
-                max(0.70, 0.82 - Double(level - 10) * 0.018),
-                4,
-                11,
-                level < 20 ? 1 : 0
-            )
-        }
-
-        let assisted = consecutiveFailures >= 2
-        let baseTargetExited = min(32, 22 + level - 1)
-        return StageDifficulty(
-            stage: level,
-            duration: 60,
-            targetScore: assisted
-                ? Int(Double(min(1_500, 900 + (level - 1) * 100)) * 0.90)
-                : min(1_500, 900 + (level - 1) * 100),
-            selectorPeriodScale: base.2 * (assisted ? 1.10 : 1),
-            destinationCount: base.3,
-            transferInterval: assisted ? min(base.4, 7) : base.4,
-            safetyHandles: base.5,
-            assisted: assisted,
-            targetExited: assisted ? Int(ceil(Double(baseTargetExited) * 0.90)) : baseTargetExited,
-            stationCount: 5
-        )
-    }
-
-    static func stationPlan(index: Int, difficulty: StageDifficulty) -> StationPlan {
-        let clampedIndex = min(5, max(1, index))
-        let arrayIndex = clampedIndex - 1
-        let names = ["첫빛역", "구름역", "노을역", "별빛역", "달빛역"]
-        let exitDemands = [5, 6, 6, 7, 8]
-        let perfectWindows: [TimeInterval] = [0.25, 0.22, 0.19, 0.17, 0.15]
-        let safeWindows: [TimeInterval] = [0.55, 0.48, 0.42, 0.36, 0.32]
-        let nearWindows: [TimeInterval] = [0.85, 0.75, 0.65, 0.56, 0.50]
-        let speedScales = [1.0, 1.0, 1.10, 1.18, 1.25]
-
-        let exitDemand = exitDemands[arrayIndex]
-        let speedScale = speedScales[arrayIndex]
-        let assistanceScale = difficulty.assisted ? 1.10 : 1.0
-        let approachDuration = 8.0 / speedScale * assistanceScale
-
-        return StationPlan(
-            name: names[arrayIndex],
-            exitDemand: exitDemand,
-            boardDemand: Int(ceil(Double(exitDemand) * (difficulty.assisted ? 0.50 : 0.60))),
-            approachDuration: approachDuration,
-            optimalBrakeTime: approachDuration * 0.75,
-            perfectWindow: perfectWindows[arrayIndex],
-            safeWindow: safeWindows[arrayIndex],
-            nearWindow: nearWindows[arrayIndex],
-            speedScale: speedScale
-        )
-    }
-
-    static func resolveBrake(tappedAt: TimeInterval?, plan: StationPlan) -> BrakeResolution {
-        guard let tappedAt, tappedAt.isFinite else {
-            return BrakeResolution(
-                timingError: nil,
-                grade: .missed,
-                exitedCount: 0,
-                scoreGained: 0,
-                finalOffset: 1
-            )
-        }
-
-        let timingError = tappedAt - plan.optimalBrakeTime
-        let finalOffset = min(
-            1,
-            max(-1, timingError / max(plan.nearWindow, .leastNonzeroMagnitude))
-        )
-        guard (0...plan.approachDuration).contains(tappedAt) else {
-            return BrakeResolution(
-                timingError: timingError,
-                grade: .missed,
-                exitedCount: 0,
-                scoreGained: 0,
-                finalOffset: finalOffset
-            )
-        }
-
-        let timingMagnitude = abs(timingError)
-        let grade: BrakeGrade
-        let exitRatio: Double
-        let score: Int
-        if timingMagnitude <= plan.perfectWindow {
-            grade = .perfect
-            exitRatio = 1
-            score = 300
-        } else if timingMagnitude <= plan.safeWindow {
-            grade = .safe
-            exitRatio = 0.80
-            score = 200
-        } else if timingMagnitude <= plan.nearWindow {
-            grade = .near
-            exitRatio = 0.50
-            score = 100
-        } else {
-            grade = .missed
-            exitRatio = 0
-            score = 0
-        }
-
-        return BrakeResolution(
-            timingError: timingError,
-            grade: grade,
-            exitedCount: Int(ceil(Double(plan.exitDemand) * exitRatio)),
-            scoreGained: score,
-            finalOffset: finalOffset
-        )
-    }
-
-    static func selectorPeriod(at elapsed: TimeInterval, duration: TimeInterval) -> TimeInterval {
-        let progress = min(1, max(0, elapsed / max(1, duration)))
-        let eased = progress * progress * (3 - 2 * progress)
-        return 1.60 + (0.90 - 1.60) * eased
-    }
-
-    static func passengerKind(
-        boarded: Int,
-        destinationCount: Int,
-        transferInterval: Int,
-        rng: inout SeededRandom
-    ) -> PassengerKind {
-        if boarded > 0, boarded % max(1, transferInterval) == 0 { return .transfer }
-        let available = Array(
-            PassengerKind.destinations.prefix(min(4, max(1, destinationCount)))
-        )
-        return available[rng.int(in: 0...(available.count - 1))]
-    }
-
-    static func stationBonus(
-        at elapsed: TimeInterval,
-        duration: TimeInterval,
-        previousStation: Int
-    ) -> Int {
-        let station = min(4, Int(elapsed / max(1, duration / 4)) + 1)
-        return station > previousStation ? 150 : 0
-    }
-
-    private static func shuffled<Element>(
-        _ values: [Element],
-        using rng: inout SeededRandom
-    ) -> [Element] {
-        guard values.count > 1 else { return values }
-        var result = values
-        for index in stride(from: result.count - 1, through: 1, by: -1) {
-            let swapIndex = rng.int(in: 0...index)
-            if index != swapIndex {
-                result.swapAt(index, swapIndex)
+        } else if movement.x > 0 {
+            let time = (fieldWidth - sideWall - radius - start.x) / movement.x
+            if (0...1).contains(time) {
+                candidates.append(
+                    Collision(time: time, normal: ShotVector(x: -1, y: 0), kind: .wall, priority: 2, stableID: 1)
+                )
             }
         }
-        return result
+        if movement.y > 0 {
+            let time = (topWall - radius - start.y) / movement.y
+            if (0...1).contains(time) {
+                candidates.append(
+                    Collision(time: time, normal: ShotVector(x: 0, y: -1), kind: .wall, priority: 2, stableID: 2)
+                )
+            }
+        }
+
+        if movement.y < 0 {
+            let paddleRect = ShotRect(
+                center: ShotVector(x: state.paddleX, y: paddleY),
+                width: paddleWidth,
+                height: paddleHeight
+            ).expanded(by: radius)
+            if let hit = sweptPointAgainstRect(start: start, movement: movement, rect: paddleRect) {
+                candidates.append(
+                    Collision(time: hit.time, normal: hit.normal, kind: .paddle, priority: 0, stableID: 0)
+                )
+            }
+        }
+
+        for brick in state.bricks where !brick.isRemoved {
+            if let hit = sweptPointAgainstRect(
+                start: start,
+                movement: movement,
+                rect: brick.rect.expanded(by: radius)
+            ) {
+                candidates.append(
+                    Collision(
+                        time: hit.time,
+                        normal: hit.normal,
+                        kind: .brick(brick.id),
+                        priority: 1,
+                        stableID: brick.id
+                    )
+                )
+            }
+        }
+
+        return candidates.min { lhs, rhs in
+            if abs(lhs.time - rhs.time) > 0.000_000_1 { return lhs.time < rhs.time }
+            if lhs.priority != rhs.priority { return lhs.priority < rhs.priority }
+            return lhs.stableID < rhs.stableID
+        }
+    }
+
+    private static func sweptPointAgainstRect(
+        start: ShotVector,
+        movement: ShotVector,
+        rect: ShotRect
+    ) -> (time: Double, normal: ShotVector)? {
+        let nearX: Double
+        let farX: Double
+        if abs(movement.x) < 0.000_000_1 {
+            guard (rect.minX...rect.maxX).contains(start.x) else { return nil }
+            nearX = -.infinity
+            farX = .infinity
+        } else {
+            let first = (rect.minX - start.x) / movement.x
+            let second = (rect.maxX - start.x) / movement.x
+            nearX = min(first, second)
+            farX = max(first, second)
+        }
+
+        let nearY: Double
+        let farY: Double
+        if abs(movement.y) < 0.000_000_1 {
+            guard (rect.minY...rect.maxY).contains(start.y) else { return nil }
+            nearY = -.infinity
+            farY = .infinity
+        } else {
+            let first = (rect.minY - start.y) / movement.y
+            let second = (rect.maxY - start.y) / movement.y
+            nearY = min(first, second)
+            farY = max(first, second)
+        }
+
+        let nearTime = max(nearX, nearY)
+        let farTime = min(farX, farY)
+        guard nearTime <= farTime, farTime >= 0, nearTime >= 0, nearTime <= 1 else { return nil }
+
+        let normal: ShotVector
+        if nearX > nearY {
+            normal = ShotVector(x: movement.x < 0 ? 1 : -1, y: 0)
+        } else {
+            normal = ShotVector(x: 0, y: movement.y < 0 ? 1 : -1)
+        }
+        return (nearTime, normal)
+    }
+
+    private static func resolveNegativeContact(
+        state: inout ReturnShotState,
+        index: Int
+    ) -> (events: [ShotSimulationEvent], shouldReflect: Bool) {
+        let cooldownTicks = Int(0.75 * Double(tickRate))
+        let canPenalize = state.bricks[index].penaltyHits < 2
+            && state.tick - state.bricks[index].lastPenaltyTick >= cooldownTicks
+        guard canPenalize else { return ([], true) }
+
+        state.bricks[index].penaltyHits += 1
+        state.bricks[index].lastPenaltyTick = state.tick
+        state.score = max(0, state.score - 250)
+        state.combo = 0
+        state.comboGraceTicks = 0
+        state.link = AttributeLinkState()
+        state.powerTicks = max(0, state.powerTicks - 2 * tickRate)
+        state.feedback = "−250 직접 적중 · 지지점을 노리세요"
+        return (
+            [
+                .negativeHit(id: state.bricks[index].id, penalty: 250),
+                .comboChanged(0),
+                .linkChanged(state.link)
+            ],
+            true
+        )
+    }
+
+    private static func applyPowerShockwave(
+        state: inout ReturnShotState,
+        around brickID: Int
+    ) -> [ShotSimulationEvent] {
+        guard let source = state.bricks.first(where: { $0.id == brickID }) else { return [] }
+        let candidates = state.bricks.indices
+            .filter { index in
+                let brick = state.bricks[index]
+                guard !brick.isRemoved, brick.id != brickID, brick.role != .negative else { return false }
+                let dx = brick.rect.center.x - source.rect.center.x
+                let dy = brick.rect.center.y - source.rect.center.y
+                return hypot(dx, dy) <= 88
+            }
+            .sorted { lhs, rhs in
+                let left = state.bricks[lhs]
+                let right = state.bricks[rhs]
+                let leftDistance = hypot(
+                    left.rect.center.x - source.rect.center.x,
+                    left.rect.center.y - source.rect.center.y
+                )
+                let rightDistance = hypot(
+                    right.rect.center.x - source.rect.center.x,
+                    right.rect.center.y - source.rect.center.y
+                )
+                if abs(leftDistance - rightDistance) > 0.001 { return leftDistance < rightDistance }
+                return left.id < right.id
+            }
+            .prefix(2)
+
+        var events: [ShotSimulationEvent] = []
+        for index in candidates {
+            guard !state.bricks[index].isRemoved else { continue }
+            state.bricks[index].hitPoints = max(0, state.bricks[index].hitPoints - 1)
+            events.append(
+                .brickHit(
+                    id: state.bricks[index].id,
+                    remainingHitPoints: state.bricks[index].hitPoints
+                )
+            )
+            if state.bricks[index].hitPoints == 0 {
+                state.bricks[index].isRemoved = true
+                state.score += 60
+                state.height += 1
+                state.destroyedBrickCount += 1
+                advanceCombo(state: &state, events: &events)
+                events.append(
+                    .brickRemoved(
+                        id: state.bricks[index].id,
+                        cause: .shockwave,
+                        points: 60
+                    )
+                )
+            }
+        }
+        events.append(contentsOf: collapseUnsupported(state: &state))
+        return events
+    }
+
+    private static func advanceCombo(
+        state: inout ReturnShotState,
+        events: inout [ShotSimulationEvent]
+    ) {
+        state.combo = state.comboGraceTicks > 0 ? state.combo + 1 : 1
+        state.comboGraceTicks = comboGraceDurationTicks
+        state.maxCombo = max(state.maxCombo, state.combo)
+        events.append(.comboChanged(state.combo))
+    }
+
+    private static func scoredDirectPoints(
+        base: Int,
+        attributeMatchCount: Int,
+        state: ReturnShotState
+    ) -> Int {
+        guard base > 0 else { return 0 }
+        let attributeMultiplier: Double = switch attributeMatchCount {
+        case 3: 2.0
+        case 2: 1.5
+        case 1: 1.25
+        default: 1.0
+        }
+        let comboMultiplier = min(2.5, 1 + Double(max(0, state.combo - 1)) * 0.15)
+        let powerMultiplier = state.isPowerActive ? 2.0 : 1.0
+        let returnMultiplier = state.returnShotTicks > 0 ? 2.0 : 1.0
+        return Int((Double(base) * attributeMultiplier * comboMultiplier * powerMultiplier * returnMultiplier).rounded())
+    }
+
+    private static func reflectFromPaddle(state: inout ReturnShotState) -> Bool {
+        let offset = (state.ball.position.x - state.paddleX) / (paddleWidth / 2)
+        let speed = desiredBallSpeed(state: state)
+        state.ball.velocity = reflectionVelocity(
+            contactOffset: offset,
+            paddleVelocity: state.paddleVelocity,
+            speed: speed
+        )
+        let edgeShot = abs(offset) >= 0.65 && abs(state.paddleVelocity) >= 220
+        if edgeShot {
+            state.returnShotTicks = Int(1.8 * Double(tickRate))
+            state.feedback = "리턴 샷! 1.8초 ×2"
+        }
+        return edgeShot
+    }
+
+    private static func desiredBallSpeed(state: ReturnShotState) -> Double {
+        let segmentBoost = min(210, Double(state.segment) * 13)
+        let timeBoost = min(120, Double(state.tick) / Double(tickRate * 20) * 9)
+        let base = 370 + segmentBoost + timeBoost
+        return min(720, base * (state.isPowerActive ? 1.12 : 1))
+    }
+
+    private static func normalizeBallSpeed(state: inout ReturnShotState) {
+        let direction = state.ball.velocity.normalized()
+        state.ball.velocity = direction.scaled(by: desiredBallSpeed(state: state))
+        let minimumVertical = desiredBallSpeed(state: state) * 0.32
+        if abs(state.ball.velocity.y) < minimumVertical {
+            state.ball.velocity.y = state.ball.velocity.y < 0 ? -minimumVertical : minimumVertical
+            state.ball.velocity = state.ball.velocity.normalized().scaled(by: desiredBallSpeed(state: state))
+        }
+    }
+
+    private static func reflect(velocity: inout ShotVector, normal: ShotVector) {
+        let dot = velocity.x * normal.x + velocity.y * normal.y
+        velocity.x -= 2 * dot * normal.x
+        velocity.y -= 2 * dot * normal.y
+    }
+
+    private static func nudgeBall(state: inout ReturnShotState, normal: ShotVector) {
+        state.ball.position.x += normal.x * 0.02
+        state.ball.position.y += normal.y * 0.02
     }
 }

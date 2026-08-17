@@ -14,51 +14,63 @@ struct GameContainerView: View {
                 options: [.ignoresSiblingOrder]
             )
             .ignoresSafeArea()
-            .accessibilityLabel("지옥철 목표 인원 문닫기 게임")
-            .accessibilityHint("현재 탑승 인원이 목표와 같을 때 하단 문 닫기 레버를 누르세요")
+            .accessibilityLabel("연쇄파괴 리턴 샷")
+            .accessibilityHint("화면을 좌우로 끌어 패들을 움직이고, 같은 속성을 이어 마이너스 벽돌의 지지점을 노리세요")
             .accessibilityValue(gameAccessibilityValue)
-            .accessibilityIdentifier("trainGameScene")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .decrement:
+                    scene.movePaddleForAccessibility(by: -48)
+                case .increment:
+                    scene.movePaddleForAccessibility(by: 48)
+                @unknown default:
+                    break
+                }
+            }
+            .accessibilityAction(named: "패들을 왼쪽으로 이동") {
+                scene.movePaddleForAccessibility(by: -48)
+            }
+            .accessibilityAction(named: "패들을 오른쪽으로 이동") {
+                scene.movePaddleForAccessibility(by: 48)
+            }
+            .accessibilityIdentifier("returnShotGameScene")
 
             VStack(spacing: 0) {
-                OwnerReferenceHUD(snapshot: model.snapshot) {
-                    model.pause()
+                GameHUD(
+                    snapshot: model.snapshot,
+                    variant: model.visualVariant,
+                    pause: model.pause
+                )
+
+                if model.showTutorial {
+                    TutorialCoachmark(variant: model.visualVariant)
+                        .allowsHitTesting(false)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        .padding(.top, 8)
+                } else {
+                    GameplayFeedbackPill(
+                        snapshot: model.snapshot,
+                        variant: model.visualVariant
+                    )
+                    .allowsHitTesting(false)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .padding(.top, 8)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 68)
 
                 Spacer()
-
-                OwnerReferenceLever(
-                    snapshot: model.snapshot,
-                    close: { scene.closeDoors(observedRevision: model.snapshot.countRevision) }
-                )
-                .padding(.bottom, 3)
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 54)
 
-            if model.showTutorial {
-                VStack {
-                    Spacer()
-                    TutorialCoachmark()
-                        .padding(.bottom, 142)
-                }
-                .allowsHitTesting(false)
-                .transition(.opacity)
-            }
-
-            if model.showRescueOffer {
-                RescueOverlay(model: model)
-                    .transition(.opacity)
-            } else if model.snapshot.phase == .paused {
+            if model.snapshot.phase == .paused {
                 PauseOverlay(
-                    resume: { model.resume() },
-                    home: { model.goHome() }
+                    resume: model.resume,
+                    home: model.goHome
                 )
                 .transition(.opacity)
             }
         }
-        .task {
-            scene.setReduceMotion(reduceMotion)
-        }
+        .task { scene.setReduceMotion(reduceMotion) }
         .onChange(of: reduceMotion) { _, enabled in
             scene.setReduceMotion(enabled)
         }
@@ -68,292 +80,195 @@ struct GameContainerView: View {
     }
 
     private var gameAccessibilityValue: String {
-        if model.snapshot.doorsOpen {
-            return "승하차 중, 현재 \(model.snapshot.onboardCount)명, 목표 \(model.snapshot.targetOnboardCount)명"
-        }
-        if let delta = model.snapshot.lastCloseDelta {
-            if delta == 0 { return "목표 인원 정확히 맞음" }
-            return delta > 0 ? "\(delta)명 초과" : "\(-delta)명 부족"
-        }
-        return "현재 \(model.snapshot.onboardCount)명, 목표 \(model.snapshot.targetOnboardCount)명, \(model.snapshot.timeText)초 남음"
-    }
-}
-
-private struct OwnerReferenceHUD: View {
-    let snapshot: RunSnapshot
-    let pause: () -> Void
-
-    var body: some View {
-        HStack(spacing: 6) {
-            chip("\(snapshot.stopIndex)/5", color: Color.trainNavy, foreground: .white)
-            chip("현 \(snapshot.onboardCount)", color: Color.exitMint, foreground: Color.trainNavy)
-                .contentTransition(.numericText())
-            chip("목 \(snapshot.targetOnboardCount)", color: Color.alertCoral, foreground: .white)
-            chip("정 \(snapshot.currentChain)", color: Color(hex: 0x63A5FF), foreground: Color.trainNavy)
-            chip(snapshot.clockStarted ? snapshot.timeText : "60", color: Color.safetyYellow, foreground: Color.trainNavy)
-                .monospacedDigit()
-
-            Button(action: pause) {
-                Image(systemName: "pause.fill")
-                    .font(.system(size: 12, weight: .black))
-                    .frame(width: 32, height: 32)
-                    .background(Color.trainNavy.opacity(0.92), in: RoundedRectangle(cornerRadius: 11))
-                    .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.white.opacity(0.22)))
-            }
-            .foregroundStyle(.white)
-            .accessibilityLabel("일시정지")
-            .accessibilityIdentifier("pauseButton")
-        }
-        .frame(maxWidth: .infinity)
-        .shadow(color: Color.black.opacity(0.40), radius: 8, y: 3)
-    }
-
-    private func chip(_ text: String, color: Color, foreground: Color) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .black, design: .rounded))
-            .foregroundStyle(foreground)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .frame(maxWidth: .infinity, minHeight: 30)
-            .background(color.opacity(0.92), in: Capsule())
-            .overlay(Capsule().stroke(Color.white.opacity(0.50), lineWidth: 1))
-    }
-}
-
-private struct OwnerReferenceLever: View {
-    let snapshot: RunSnapshot
-    let close: () -> Void
-
-    var body: some View {
-        Button(action: close) {
-            ZStack {
-                Circle()
-                    .fill(Color.clear)
-                    .frame(width: 116, height: 116)
-
-                Circle()
-                    .stroke(
-                        snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.safetyYellow,
-                        lineWidth: snapshot.canCloseDoors ? 5 : 2
-                    )
-                    .frame(width: snapshot.canCloseDoors ? 108 : 96, height: snapshot.canCloseDoors ? 108 : 96)
-                    .shadow(
-                        color: (snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.safetyYellow).opacity(snapshot.canCloseDoors ? 0.72 : 0.20),
-                        radius: snapshot.canCloseDoors ? 18 : 4
-                    )
-
-                if snapshot.onboardCount == snapshot.targetOnboardCount, snapshot.canCloseDoors {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 30, weight: .black))
-                        .foregroundStyle(Color.trainNavy)
-                        .padding(21)
-                        .background(Color.exitMint, in: Circle())
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 122)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!snapshot.canCloseDoors)
-        .accessibilityLabel(snapshot.canCloseDoors ? "문 닫기, 현재 \(snapshot.onboardCount)명, 목표 \(snapshot.targetOnboardCount)명" : "하차 중")
-        .accessibilityIdentifier("closeDoorButton")
+        let power = model.snapshot.powerSeconds > 0
+            ? ", 공명 폭주 \(model.snapshot.powerSeconds.formatted(.number.precision(.fractionLength(1))))초"
+            : ""
+        return "점수 \(model.snapshot.score), 높이 \(model.snapshot.height)미터, 콤보 \(model.snapshot.combo), \(model.snapshot.link.leadingText)\(power)"
     }
 }
 
 private struct GameHUD: View {
     let snapshot: RunSnapshot
+    let variant: VisualVariant
     let pause: () -> Void
 
     var body: some View {
-        VStack(spacing: 7) {
-            HStack(spacing: 8) {
-                Text("\(snapshot.stopIndex)/5역")
-                    .font(.system(size: 20, weight: .black, design: .rounded))
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("SCORE")
+                        .font(.caption2.weight(.black))
+                        .foregroundStyle(.white.opacity(0.64))
+                    Text(snapshot.score.formatted())
+                        .font(.system(.title2, design: .rounded, weight: .black))
+                        .foregroundStyle(.white)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text("정확 \(snapshot.currentChain)/3")
-                    .font(.system(size: 12, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color.exitMint)
-
-                Spacer()
-
-                Text(snapshot.clockStarted ? snapshot.timeText : "60")
-                    .font(.system(size: 15, weight: .black, design: .rounded))
-                    .monospacedDigit()
-                    .padding(.horizontal, 11)
-                    .frame(height: 34)
-                    .background(Color.safetyYellow.opacity(0.95), in: Capsule())
-                    .foregroundStyle(Color.trainNavy)
+                compactStat(label: "높이", value: "\(snapshot.height)m", color: .exitMint)
+                compactStat(label: "콤보", value: "×\(snapshot.combo)", color: .safetyYellow)
 
                 Button(action: pause) {
                     Image(systemName: "pause.fill")
-                        .font(.system(size: 13, weight: .black))
-                        .frame(width: 42, height: 38)
-                        .background(Color.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
+                        .font(.system(size: 15, weight: .black))
+                        .frame(width: 44, height: 44)
+                        .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.18)))
                 }
                 .foregroundStyle(.white)
                 .accessibilityLabel("일시정지")
                 .accessibilityIdentifier("pauseButton")
             }
 
-            HStack(spacing: 9) {
-                Image(systemName: "tram.fill")
-                    .foregroundStyle(Color.exitMint)
+            HStack(spacing: 8) {
+                Image(systemName: leadingIcon)
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(leadingColor)
+                Text(snapshot.link.leadingText)
+                    .font(.system(.caption, design: .rounded, weight: .black))
+                    .lineLimit(1)
 
-                GeometryReader { proxy in
-                    let progress = snapshot.flowProgress
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.11))
+                HStack(spacing: 3) {
+                    ForEach(0..<5, id: \.self) { index in
                         Capsule()
-                            .fill(Color.exitMint)
-                            .frame(width: max(8, proxy.size.width * progress))
-                        HStack {
-                            ForEach(0..<5, id: \.self) { station in
-                                Circle()
-                                    .fill(station < snapshot.stopIndex ? Color.exitMint : Color.white.opacity(0.66))
-                                    .frame(width: station + 1 == snapshot.stopIndex ? 10 : 7)
-                                if station < 4 { Spacer() }
-                            }
-                        }
-                        .padding(.horizontal, 2)
+                            .fill(index < min(5, snapshot.link.highestCount) ? leadingColor : Color.white.opacity(0.16))
+                            .frame(width: 12, height: 6)
                     }
                 }
-                .frame(height: 12)
 
-                Text(snapshot.canCloseDoors ? "탑승 중" : "하차 중")
-                    .font(.system(size: 15, weight: .black, design: .rounded))
-                    .foregroundStyle(snapshot.canCloseDoors ? Color.exitMint : .white.opacity(0.62))
+                Spacer(minLength: 4)
 
+                Text(recordPaceText)
+                    .font(.system(.caption2, design: .rounded, weight: .bold))
+                    .foregroundStyle(recordPaceColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            if snapshot.powerSeconds > 0 {
+                GeometryReader { proxy in
+                    Capsule()
+                        .fill(Color.white.opacity(0.12))
+                        .overlay(alignment: .leading) {
+                            Capsule()
+                                .fill(LinearGradient(colors: [.safetyYellow, .alertCoral], startPoint: .leading, endPoint: .trailing))
+                                .frame(width: proxy.size.width * max(0, min(1, snapshot.powerProgress)))
+                        }
+                }
+                .frame(height: 4)
+                .accessibilityLabel("공명 폭주 남은 시간 \(snapshot.powerSeconds.formatted(.number.precision(.fractionLength(1))))초")
             }
         }
-        .padding(9)
-        .background(Color.trainNavy.opacity(0.88), in: RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.12)))
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(hudBackground, in: RoundedRectangle(cornerRadius: variant == .impactPop ? 16 : 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: variant == .impactPop ? 16 : 20)
+                .stroke(variant == .impactPop ? Color.safetyYellow.opacity(0.24) : Color.white.opacity(0.14))
+        }
+        .shadow(color: .black.opacity(0.34), radius: 12, y: 5)
+    }
+
+    private var hudBackground: some ShapeStyle {
+        LinearGradient(
+            colors: variant == .impactPop
+                ? [Color(hex: 0x16243C).opacity(0.96), Color(hex: 0x291D37).opacity(0.96)]
+                : [Color(hex: 0x0B172A).opacity(0.94), Color(hex: 0x12243B).opacity(0.94)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    private var leadingIcon: String {
+        if snapshot.link.colorCount >= snapshot.link.patternCount,
+           snapshot.link.colorCount >= snapshot.link.markCount { return "paintpalette.fill" }
+        if snapshot.link.patternCount >= snapshot.link.markCount { return "line.3.horizontal" }
+        return "star.fill"
+    }
+
+    private var leadingColor: Color {
+        snapshot.powerSeconds > 0 ? .safetyYellow : .exitMint
+    }
+
+    private var recordPaceText: String {
+        guard snapshot.bestScore > 0 else { return "첫 기록 중" }
+        let delta = snapshot.score - snapshot.bestScore
+        return delta >= 0 ? "PB +\(delta.formatted())점" : "PB까지 \((-delta).formatted())점"
+    }
+
+    private var recordPaceColor: Color {
+        snapshot.bestScore > 0 && snapshot.score >= snapshot.bestScore
+            ? .safetyYellow
+            : .white.opacity(0.62)
+    }
+
+    private func compactStat(label: String, value: String, color: Color) -> some View {
+        VStack(spacing: 0) {
+            Text(label)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.58))
+            Text(value)
+                .font(.system(.headline, design: .rounded, weight: .black))
+                .foregroundStyle(color)
+                .monospacedDigit()
+        }
+        .frame(minWidth: 48)
     }
 }
 
-private struct CloseDoorLever: View {
+private struct GameplayFeedbackPill: View {
     let snapshot: RunSnapshot
-    let close: () -> Void
+    let variant: VisualVariant
 
     var body: some View {
-        Button(action: close) {
-            HStack(spacing: 17) {
-                ZStack {
-                    Circle()
-                        .fill(snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.safetyYellow)
-                        .frame(width: 74, height: 74)
-                        .overlay(Circle().stroke(Color.white.opacity(0.84), lineWidth: 4))
-                        .shadow(
-                            color: (snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.safetyYellow).opacity(0.48),
-                            radius: 13
-                        )
-                    Image(systemName: "door.left.hand.closed")
-                        .font(.system(size: 31, weight: .black))
-                        .foregroundStyle(Color.trainNavy)
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(snapshot.canCloseDoors ? (snapshot.onboardCount == snapshot.targetOnboardCount ? "지금! 문 닫기" : "문 닫기") : "하차 중")
-                        .font(.system(size: 25, weight: .black, design: .rounded))
-                    Text(snapshot.canCloseDoors ? "현재 \(snapshot.onboardCount) · 목표 \(snapshot.targetOnboardCount)" : "승객이 모두 내리면 활성화돼요")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.60))
-                }
-                Spacer()
-                Image(systemName: "hand.tap.fill")
-                    .font(.system(size: 28, weight: .black))
-                    .foregroundStyle(snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.white.opacity(0.44))
+        HStack(spacing: 9) {
+            Image(systemName: snapshot.isReturnShot ? "arrow.trianglehead.2.clockwise.rotate.90" : "scope")
+                .font(.system(size: 15, weight: .black))
+                .foregroundStyle(snapshot.isReturnShot ? Color.safetyYellow : Color.exitMint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(snapshot.feedback)
+                    .font(.system(.caption, design: .rounded, weight: .black))
+                    .lineLimit(1)
+                Text("구조 \(snapshot.segment) · 최고 LINK \(snapshot.maxLink)/5")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.58))
             }
-            .padding(.horizontal, 18)
-            .frame(maxWidth: .infinity, minHeight: 96)
-            .foregroundStyle(.white)
         }
-        .buttonStyle(.plain)
-        .disabled(!snapshot.canCloseDoors)
-        .background(Color.trainNavy.opacity(0.94), in: RoundedRectangle(cornerRadius: 34))
-        .overlay(
-            RoundedRectangle(cornerRadius: 34)
-                .stroke(snapshot.onboardCount == snapshot.targetOnboardCount ? Color.exitMint : Color.safetyYellow.opacity(0.70), lineWidth: 3)
-        )
-        .shadow(color: .black.opacity(0.42), radius: 18, y: 8)
-        .accessibilityLabel(snapshot.canCloseDoors ? "문 닫기, 현재 \(snapshot.onboardCount)명, 목표 \(snapshot.targetOnboardCount)명" : "하차 중")
-        .accessibilityIdentifier("closeDoorButton")
+        .padding(.horizontal, 14)
+        .frame(minHeight: 50)
+        .background(Color(hex: variant == .impactPop ? 0x241B31 : 0x0C192C).opacity(0.93), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.14)))
+        .shadow(color: .black.opacity(0.28), radius: 8, y: 3)
     }
 }
 
 private struct TutorialCoachmark: View {
+    let variant: VisualVariant
+
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "equal.circle.fill")
-                .font(.title3.weight(.black))
+            Image(systemName: "hand.draw.fill")
+                .font(.system(size: 21, weight: .black))
                 .foregroundStyle(Color.safetyYellow)
-            Text("현재 인원과 목표가 같을 때 문을 닫으세요")
-                .font(.system(.headline, design: .rounded, weight: .black))
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 13)
-        .background(Color.trainNavy.opacity(0.94), in: Capsule())
-        .overlay(Capsule().stroke(Color.safetyYellow.opacity(0.65), lineWidth: 2))
-        .shadow(color: .black.opacity(0.28), radius: 14, y: 7)
-    }
-}
-
-private struct RescueOverlay: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        ZStack {
-            Color.trainNavy.opacity(0.92).ignoresSafeArea()
-            VStack(spacing: 18) {
-                Image(systemName: "tram.fill.tunnel")
-                    .font(.system(size: 48))
-                    .foregroundStyle(Color.alertCoral)
-
-                Text("다음 역이면 도착할 수 있어요")
-                    .font(.system(.title, design: .rounded, weight: .black))
-                    .multilineTextAlignment(.center)
-
-                Text("추가 역 1회에서 최대 8명이 더 내릴 수 있어요.\n광고 없이 같은 운행 재시도도 가능합니다.")
-                    .font(.system(.body, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.68))
-                    .multilineTextAlignment(.center)
-
-                if let message = model.rescueErrorMessage {
-                    Text(message)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color.alertCoral)
-                        .multilineTextAlignment(.center)
-                }
-
-                if model.rescueOfferIsFree || model.isRewardedAdAvailable || model.hasPendingRescueReward {
-                    Button {
-                        Task { await model.acceptRescue() }
-                    } label: {
-                        HStack {
-                            if model.isRescueLoading {
-                                ProgressView().tint(Color.trainNavy)
-                            } else {
-                                Image(systemName: model.rescueOfferIsFree ? "ticket.fill" : "play.rectangle.fill")
-                            }
-                            Text(model.rescueOfferIsFree ? "첫 운행 무료 연장 · 다음 역 +12초" : "광고 1회 보고 다음 역 +12초")
-                        }
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(model.isRescueLoading)
-                    .accessibilityIdentifier("acceptRescueButton")
-                }
-
-                Button("무료로 같은 운행 다시") {
-                    model.restartFromRescueOffer()
-                }
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white.opacity(0.76))
-                .padding(.vertical, 12)
-                .disabled(model.isRescueLoading)
-                .accessibilityIdentifier("declineRescueButton")
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("좌우로 끌어 반사각을 만드세요")
+                    .font(.system(.caption, design: .rounded, weight: .black))
+                Text("같은 색·무늬·마크 5연속 → 6초 폭주")
+                    .font(.system(.caption2, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.72))
             }
-            .padding(28)
         }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 52)
+        .background(Color(hex: variant == .impactPop ? 0x2B1D36 : 0x0B192D).opacity(0.96), in: RoundedRectangle(cornerRadius: 17))
+        .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.safetyYellow.opacity(0.50), lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.34), radius: 10, y: 4)
+        .padding(.horizontal, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("좌우로 끌어 반사각을 만드세요. 같은 색, 무늬, 마크를 다섯 번 이으면 6초 공명 폭주가 시작됩니다")
     }
 }
 
@@ -363,22 +278,24 @@ private struct PauseOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.trainNavy.opacity(0.86).ignoresSafeArea()
-            VStack(spacing: 17) {
-                Image(systemName: "tram.fill")
-                    .font(.system(size: 44))
+            Color(hex: 0x071225).opacity(0.94).ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 52))
                     .foregroundStyle(Color.safetyYellow)
-                Text("잠시 정차 중")
+                Text("연쇄 일시정지")
                     .font(.system(.largeTitle, design: .rounded, weight: .black))
-                Text("준비되면 다시 출발하세요")
-                    .foregroundStyle(.white.opacity(0.60))
-                Button("계속 운행") { resume() }
+                Text("자동으로 재개하지 않아요")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.68))
+                Button("계속 파괴", action: resume)
                     .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("resumeButton")
-                Button("오늘은 여기까지") { home() }
+                Button("홈으로", action: home)
                     .font(.headline.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .padding(.vertical, 12)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("pauseHomeButton")
             }
             .padding(28)
         }

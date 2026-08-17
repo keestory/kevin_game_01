@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "OneMoreCarGameCore",
+    name: "ReturnShotGameCore",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "GameCore", targets: ["GameCore"])

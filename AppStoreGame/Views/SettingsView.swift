@@ -13,7 +13,7 @@ struct SettingsView: View {
                     Toggle("햅틱", systemImage: "hand.tap.fill", isOn: $haptics)
                 }
                 Section("게임 정보") {
-                    LabeledContent("버전", value: "0.2 실제 열차 프로토타입")
+                    LabeledContent("버전", value: "0.3 리턴 샷 체인 프로토타입")
                     LabeledContent("오늘의 시드", value: String(DailySeed.current()))
                 }
             }

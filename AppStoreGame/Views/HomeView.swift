@@ -5,22 +5,37 @@ struct HomeView: View {
 
     var body: some View {
         ZStack {
+            GeometryReader { proxy in
+                Image("ReturnShotBackdrop")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+                    .opacity(model.visualVariant == .impactPop ? 0.78 : 0.62)
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+
             LinearGradient(
-                colors: [.trainNavy, Color(hex: 0x172746), .trainNavy],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                colors: [
+                    Color(hex: 0x071225).opacity(0.38),
+                    Color(hex: model.visualVariant == .impactPop ? 0x311A33 : 0x0A2037).opacity(0.62),
+                    Color(hex: 0x071225).opacity(0.94)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
             )
             .ignoresSafeArea()
 
-            DecorativeRoute()
-                .opacity(0.34)
-                .ignoresSafeArea()
-
             ScrollView {
-                VStack(spacing: 22) {
+                VStack(spacing: 19) {
                     HStack {
-                        Label("오늘의 혼잡도 운행", systemImage: "tram.fill")
-                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        Label(
+                            model.visualVariant == .impactPop ? "IMPACT CHAIN ARCADE" : "ACTIVE RETURN ARCADE",
+                            systemImage: "circle.hexagongrid.fill"
+                        )
+                            .font(.system(size: 11, weight: .black, design: .rounded))
                             .foregroundStyle(Color.exitMint)
                         Spacer()
                         Button {
@@ -36,51 +51,29 @@ struct HomeView: View {
                         .accessibilityIdentifier("settingsButton")
                     }
 
-                    VStack(spacing: 2) {
-                        Text("문 닫습니다!")
-                            .font(.system(size: 46, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-                        Text("지옥철")
-                            .font(.system(size: 31, weight: .black, design: .rounded))
+                    VStack(spacing: 3) {
+                        Text("연쇄파괴")
+                            .font(.system(size: 42, weight: .black, design: .rounded))
+                        Text("RETURN SHOT")
+                            .font(.system(size: 27, weight: .black, design: .rounded))
                             .foregroundStyle(Color.safetyYellow)
-                        Text("현재 인원이 목표와 같을 때 문을 닫아요")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.62))
-                            .padding(.top, 7)
+                        Text("마크를 잇고 · 약점을 끊고 · 기록을 넘어서")
+                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .padding(.top, 6)
                     }
-                    .padding(.top, 10)
+                    .accessibilityIdentifier("homeHero")
 
-                    TrainPreview()
-                        .padding(.vertical, 5)
+                    ReturnShotPreview(variant: model.visualVariant)
 
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("\(model.profile.highestStage)단계 · 5개 역")
-                                    .font(.system(.title3, design: .rounded, weight: .heavy))
-                                Text("우르르 승하차하는 인원을 딱 맞춰주세요")
-                                    .font(.footnote.weight(.medium))
-                                    .foregroundStyle(.white.opacity(0.58))
-                            }
-                            Spacer()
-                            Text("정확 3/5")
-                                .font(.system(.caption, design: .monospaced, weight: .bold))
-                                .foregroundStyle(Color.safetyYellow)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 7)
-                                .background(Color.safetyYellow.opacity(0.12), in: Capsule())
+                    VStack(spacing: 14) {
+                        HStack(spacing: 10) {
+                            homeStat(title: "BEST SCORE", value: model.profile.bestScore.formatted(), color: .white)
+                            homeStat(title: "BEST HEIGHT", value: "\(model.profile.bestHeight)m", color: Color.exitMint)
+                            homeStat(title: "MAX COMBO", value: "×\(model.profile.bestCombo)", color: Color.safetyYellow)
                         }
 
-                        HStack(spacing: 14) {
-                            stat(title: "최고 점수", value: model.profile.bestScore.formatted())
-                            Divider().overlay(Color.white.opacity(0.12))
-                            stat(
-                                title: "운행 노선",
-                                value: "5개 역"
-                            )
-                        }
-
-                        Button("60초 지옥철 출발") {
+                        Button(model.profile.bestScore == 0 ? "첫 기록 시작" : "기록 넘기") {
                             model.startGame()
                         }
                         .buttonStyle(PrimaryButtonStyle())
@@ -88,30 +81,30 @@ struct HomeView: View {
                     }
                     .glassCard()
 
-                    HStack(spacing: 10) {
-                        Label("인원 타이밍", systemImage: "number.circle.fill")
-                        Text("•")
-                        Label("우르르 승하차", systemImage: "person.3.fill")
-                        Text("•")
-                        Label("실제 승하차", systemImage: "door.left.hand.open")
+                    VStack(alignment: .leading, spacing: 11) {
+                        rule(icon: "link", color: Color.exitMint, title: "5-LINK", body: "같은 색·무늬·마크를 이으면 6초 공명 폭주")
+                        rule(icon: "diamond.fill", color: Color.safetyYellow, title: "프리즘", body: "3번 투자해 큰 점수를 얻거나 지지대를 먼저 끊기")
+                        rule(icon: "minus.square.fill", color: Color.alertCoral, title: "마이너스", body: "직접 맞히면 −250, 지지점을 무너뜨리면 +120")
                     }
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.48))
+                    .padding(17)
+                    .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 22))
+                    .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.white.opacity(0.08)))
 
                     if model.profile.bestScore > 0 {
                         ShareLink(
-                            item: "문 닫습니다! 지옥철 내 최고 점수는 \(model.profile.bestScore)점. 목표 인원에 딱 맞출 수 있을까?"
+                            item: "연쇄파괴: 리턴 샷 내 기록은 \(model.profile.bestScore)점 · \(model.profile.bestHeight)m!"
                         ) {
-                            Label("친구에게 기록 공유하기", systemImage: "person.2.wave.2.fill")
+                            Label("기록 공유하기", systemImage: "square.and.arrow.up.fill")
                                 .font(.system(.subheadline, design: .rounded, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.72))
-                                .padding(.vertical, 8)
+                                .foregroundStyle(.white.opacity(0.70))
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
                         }
                         .accessibilityIdentifier("shareRecordButton")
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, 19)
+                .padding(.top, 10)
                 .padding(.bottom, 30)
             }
         }
@@ -122,89 +115,128 @@ struct HomeView: View {
         }
     }
 
-    private func stat(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private func homeStat(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 3) {
             Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.48))
+                .font(.system(size: 10, weight: .black, design: .rounded))
+                .foregroundStyle(.white.opacity(0.52))
             Text(value)
-                .font(.system(.title3, design: .rounded, weight: .heavy))
+                .font(.system(size: 16, weight: .black, design: .rounded))
+                .foregroundStyle(color)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func rule(icon: String, color: Color, title: String, body: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(color)
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(.subheadline, design: .rounded, weight: .black))
+                Text(body)
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.70))
+            }
+        }
     }
 }
 
-private struct TrainPreview: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 30)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: 0x173F5C), Color(hex: 0x081833)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay(alignment: .bottom) {
-                    LinearGradient(
-                        colors: [Color(hex: 0x33445B), Color(hex: 0x182437)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 60)
-                }
+private struct ReturnShotPreview: View {
+    let variant: VisualVariant
 
-            VStack(spacing: -10) {
-                Image("DioramaTrain")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 350, height: 148)
-                    .shadow(color: .black.opacity(0.46), radius: 12, y: 9)
+    private let signatures: [(Color, String)] = [
+        (Color.exitMint, "★ ≡"),
+        (Color.exitMint, "● ⠿"),
+        (Color.exitMint, "▲ ▦"),
+        (Color(hex: 0x6AA8FF), "★ ▦"),
+        (Color.alertCoral, "● ≡")
+    ]
 
-                HStack(spacing: -3) {
-                    ForEach(0..<10, id: \.self) { index in
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 22 + CGFloat(index % 3) * 3, weight: .black))
-                            .foregroundStyle(index.isMultiple(of: 3) ? Color.safetyYellow : Color.exitMint)
-                            .shadow(color: .black.opacity(0.35), radius: 3, y: 2)
-                    }
-                }
-            }
-
-            HStack(spacing: 8) {
-                Text("현재 14")
-                    .foregroundStyle(Color.exitMint)
-                Image(systemName: "equal")
-                    .foregroundStyle(.white.opacity(0.60))
-                Text("목표 14")
-                    .foregroundStyle(Color.safetyYellow)
-            }
-            .font(.system(size: 16, weight: .black, design: .rounded))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.trainNavy.opacity(0.88), in: Capsule())
-            .offset(y: -70)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("사선으로 보이는 도시철도 열차와 승하차 군중, 현재와 목표 14명")
-        .frame(height: 206)
-        .clipShape(RoundedRectangle(cornerRadius: 30))
-        .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.exitMint.opacity(0.22)))
-    }
-}
-
-private struct DecorativeRoute: View {
     var body: some View {
         GeometryReader { proxy in
-            Path { path in
-                path.move(to: CGPoint(x: -20, y: proxy.size.height * 0.28))
-                path.addCurve(
-                    to: CGPoint(x: proxy.size.width + 30, y: proxy.size.height * 0.72),
-                    control1: CGPoint(x: proxy.size.width * 0.72, y: proxy.size.height * 0.05),
-                    control2: CGPoint(x: proxy.size.width * 0.18, y: proxy.size.height * 0.88)
-                )
+            ZStack {
+                Image("ReturnShotBackdrop")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: variant == .impactPop ? 20 : 28))
+                    .accessibilityHidden(true)
+
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: 0x071225).opacity(0.48),
+                                Color(hex: variant == .impactPop ? 0x321D3A : 0x132742).opacity(0.70)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ForEach(0..<5, id: \.self) { index in
+                            Text(signatures[index].1)
+                                .font(.system(size: 11, weight: .black, design: .rounded))
+                                .frame(maxWidth: .infinity, minHeight: 34)
+                                .background(signatures[index].0.opacity(variant == .impactPop ? 0.82 : 0.68), in: RoundedRectangle(cornerRadius: variant == .impactPop ? 5 : 9))
+                                .overlay(RoundedRectangle(cornerRadius: variant == .impactPop ? 5 : 9).stroke(signatures[index].0, lineWidth: variant == .impactPop ? 2 : 1))
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("⌁")
+                            .frame(maxWidth: .infinity, minHeight: 31)
+                            .background(Color.safetyYellow.opacity(0.18), in: RoundedRectangle(cornerRadius: 9))
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.safetyYellow))
+                        Text("◆  ●●●")
+                            .font(.system(size: 10, weight: .black))
+                            .frame(maxWidth: .infinity, minHeight: 31)
+                            .background(Color(hex: 0x514276), in: RoundedRectangle(cornerRadius: 9))
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.safetyYellow, lineWidth: 2))
+                        Text("−")
+                            .font(.system(size: 23, weight: .black))
+                            .frame(maxWidth: .infinity, minHeight: 31)
+                            .background(Color(hex: 0x3B1524), in: RoundedRectangle(cornerRadius: 9))
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.alertCoral, lineWidth: 2))
+                    }
+
+                    Spacer()
+
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 22, height: 22)
+                        .overlay(Circle().stroke(Color.exitMint, lineWidth: 4))
+                        .shadow(color: Color.exitMint.opacity(0.8), radius: 8)
+                        .offset(x: 44)
+
+                    Capsule()
+                        .fill(Color(hex: 0x122B43))
+                        .frame(width: 115, height: 19)
+                        .overlay(Capsule().stroke(Color.exitMint, lineWidth: 4))
+                        .shadow(color: Color.exitMint.opacity(0.5), radius: 9)
+                }
+                .padding(19)
+
+                Text("민트 LINK 4/5")
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .foregroundStyle(Color.exitMint)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.trainNavy.opacity(0.9), in: Capsule())
+                    .position(x: proxy.size.width / 2, y: proxy.size.height * 0.57)
             }
-            .stroke(Color.safetyYellow, style: StrokeStyle(lineWidth: 2, dash: [5, 13]))
         }
+        .frame(height: 226)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("패들로 공을 받아 같은 마크를 잇고, 프리즘과 마이너스 지지 구조를 공략하는 화면")
     }
 }

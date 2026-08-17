@@ -5,15 +5,15 @@
 ## 코드 동결 전
 
 - [ ] P0/P1가 0개이며 추적 매트릭스가 최신이다.
-- [ ] 보상 callback의 중복 ID·dismissed·failed·pending 완료 테스트가 통과한다. runID·inactive 테스트는 완료했다.
-- [ ] v3 round-trip·손상·음수 migration fixture가 통과한다. v1/v2→v3, future-version/recovery 테스트는 완료했다.
+- [ ] 실제 quantized input replay가 score·충돌 순서·collapse set·checksum을 재현한다.
+- [ ] profile round-trip·손상·음수·future-version migration fixture가 통과한다.
 - [ ] 핵심 퍼널 이벤트 schema와 검증 가능한 관측 수단이 있다. 분석을 의도적으로 미도입한다면 출시 Go/No-Go 승인과 대체 측정 계획을 기록한다.
 - [ ] 앱/단위/UI/Release 빌드가 CI 필수 체크다.
 - [ ] 접근성, 한국어, 작은/큰 iPhone, 실제 최저 지원 기기 성능을 승인했다.
 
 ## 서명과 패키징
 
-- [ ] `com.example.OneMoreCar`를 소유한 고유 bundle ID로 교체했다.
+- [ ] prototype ID `com.keestory.returnshot`의 Apple Developer 계정 소유권을 확인하고 최종 bundle ID로 등록했다.
 - [ ] Apple Developer team, 자동/수동 signing 정책과 최소 권한 App Store Connect 역할을 설정했다.
 - [ ] Release archive 및 export가 clean runner에서 재현된다.
 - [ ] entitlements, capabilities, embedded frameworks, dSYM, app version/build number를 검토했다.
@@ -31,14 +31,14 @@
 ## TestFlight
 
 - [ ] 새 설치, 업데이트(v1 저장 포함), 앱 삭제/재설치 경로를 검증했다.
-- [ ] background/foreground, 화면 잠금, 네트워크 단절, 광고 없음/실패를 검증했다.
+- [ ] background/foreground, 화면 잠금, 네트워크 단절을 검증했다.
 - [ ] 최소 15분 soak 및 메모리/에너지/frame hitch를 실제 기기에서 확인했다.
 - [ ] 크래시/로그/이벤트가 build number와 연결되고 개인정보를 포함하지 않는다.
 - [ ] 지원/개인정보/마케팅 URL과 리뷰 노트를 확인했다.
 
 ## 제출과 출시
 
-- [ ] App Store 메타데이터·스크린샷이 실제 기능만 설명한다. Debug mock 보상 광고를 출시 기능으로 표시하지 않는다.
+- [ ] App Store 메타데이터·스크린샷이 실제 기능만 설명하고 A/B 캡처를 성과 증거로 오인하지 않는다.
 - [ ] 연령 등급, 광고 포함 여부, 인앱 구매 항목을 실제 빌드와 일치시킨다.
 - [ ] 단계적 출시/수동 출시와 rollback 기준을 정했다.
 - [ ] 담당자·비상 연락·incident commander와 출시 시간대를 지정했다.
@@ -48,9 +48,9 @@
 
 1. 핵심 퍼널/크래시 관측성 부재(P1).
 2. VoiceOver 코어 조작, Reduce Motion, 큰 글자·대비 등 제품 접근성 Gate 실패(P1).
-3. 최소 5명 핵심 과업·광고 이해 사용성 Gate 미실행(P1).
+3. 최소 5명 첫 리턴·3회차·기록 상승 사용성 Gate 미실행(P1).
 4. 원격 CI는 game-core와 iOS 앱 컴파일을 통과했지만 앱 단위/UI/Release job은 미구현.
 5. 개발 팀·고유 bundle ID·서명 Archive 미설정(P1 Release).
 6. 실기기 성능/App Store Connect 개인정보 답변 미검증(Unknown).
 
-해소됨: future-version reject/recovery backup, stale run 및 inactive reward Scene 재개 방지.
+해소됨: Return Shot 앱 아이콘·배경 provenance, 과거 열차 자산 런타임 제거, `com.keestory.returnshot` prototype ID, 로컬 unit/UI 흐름.

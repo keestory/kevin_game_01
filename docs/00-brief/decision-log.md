@@ -67,3 +67,20 @@
 - Gate: 사용자 5명 중 4명의 5초 이해, active-touch 중앙값 60% 이상, Run 3 기록 중앙값이 Run 1보다 20% 이상 상승, 3/5 자발적 재시도, deterministic replay와 공 관통 0건을 모두 요구한다.
 - Stop: 위 Gate 실패, 3/5 이상이 `그냥 벽돌깨기`로만 인지, 불공정 물리 1건, 지원 하한 기기 성능 실패 시 그래픽·수익화·출시 투자를 중단한다.
 - 상세 근거: [Endless Score Pivot — 2026-08-10](../01-research/endless-score-pivot-2026-08-10.md).
+
+## D-010 — Return Shot의 속성 LINK·프리즘·마이너스 구조 채택
+
+- 결정: 사용자가 제안한 콤보, 색·무늬·마크 연속 보너스, 일시 파워, 다중 타격 보너스 벽돌, 직접 적중 감점과 간접 낙하 제거를 `Return Shot` graybox의 검증 범위로 채택한다.
+- 단순성 보호: 세 기능을 별도 팝업으로 동시에 설명하지 않고 구조의 높이로 `LINK → 프리즘 → 마이너스 지지 제거` 순으로 노출한다.
+- 고유 재미 가설: 능동 반사로 속성 경로를 잇는 조작, 프리즘 완파와 빠른 붕괴 사이의 투자 선택, 마이너스 벽돌을 직접 치지 않고 구조로 제거하는 위험 선택의 결합이다.
+- 에이전트 충돌: Market/Red Team은 세 시스템 동시 구현을 Stop하고 마이너스 지지 제거만 먼저 검증하라고 권고했다. UX는 세 판단의 결합이 차별화라고 봤고 Engineering은 규칙 고정 뒤 deterministic spike만 허용했다. Product Orchestrator는 사용자의 명시 요청을 반영하되 물리적 높이 순차 노출과 hard Stop 조건으로 복잡성 위험을 제한한다.
+- 비차별 요소: 연속 적중 파워와 multi-hit 벽돌 각각은 선행 게임 문법이므로 단독 차별점으로 주장하지 않는다.
+- Gate: [Return Shot ProductSpec rev1](../product-specs/return-shot-chain.product-spec.md)의 RS-AC-1~12를 적용한다.
+
+## D-011 — Visual Builder 기본안 A 채택
+
+- 결정: 2026-08-17 ImageGen+Vision 반복 결과, `Precision Neon`을 기본 시각안으로 채택하고 `Impact Pop`을 `-visualB` challenger로 보존한다.
+- 근거: 동일 seed·규칙에서 A의 중립 지지선이 벽돌의 색·무늬·마크보다 앞서지 않았고, B의 amber 지지선은 붕괴 에너지는 크지만 구조가 복잡하게 보였다. iPhone 17 Pro·17e·SE 375×667 실캡처에서 A는 HUD·벽돌·튜토리얼·패들 clipping 없이 통과했다.
+- 구현 검증: SwiftPM 12/12, Xcode unit 12/12, XCUITest 1/1. 자동 흐름은 홈→시작→드래그→일시정지→재개→결과→같은 seed 재도전이다. 모든 실제 지지선을 표시하고 공은 안내 band 밖의 top wall 아래에 제한한다.
+- 한계: 이 결정은 휴리스틱 시각 QA이며 사용자 A/B나 retention 증거가 아니다. `Revise-Go`로만 판정하고 실제 5명 mastery Gate 전 본개발·수익화·출시 승인을 금지한다.
+- 상세 보고: [Return Shot Visual Builder Report — 2026-08-17](../04-design/return-shot-visual-builder-report-2026-08-17.md).

@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>ko</string>
     <key>CFBundleDisplayName</key>
-    <string>한 칸만!</string>
+    <string>리턴 샷</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
