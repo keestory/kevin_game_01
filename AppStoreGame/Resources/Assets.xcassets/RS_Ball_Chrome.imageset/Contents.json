@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "RS_Ball_Chrome.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

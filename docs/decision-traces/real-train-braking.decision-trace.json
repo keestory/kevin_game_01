@@ -1,0 +1,97 @@
+{
+  "decision_trace_format_version": "0.1",
+  "trace_id": "real-train-braking-trace",
+  "title": "문 닫습니다! 지옥철 Product Decision Trace",
+  "created_at": "2026-08-09T12:30:00Z",
+  "updated_at": "2026-08-09T14:58:38Z",
+  "subject": {
+    "type": "product_spec",
+    "id": "real-train-braking",
+    "product_spec_path": "../product-specs/real-train-braking.product-spec.md",
+    "product_spec_revision": 4
+  },
+  "events": [
+    {
+      "event_id": "replace-abstract-grid-with-real-train",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T11:40:00Z",
+      "summary": "The 5 by 7 abstract passenger grid failed the project owner's train fantasy, fun, graphics, and effects expectations.",
+      "drift": {
+        "spec_claim": "The earlier implementation represented passengers as tokens in a grid.",
+        "observed_reality": "The project owner expected a real train, real doors, visible passengers, and immediate effects because the game is about getting off a train."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "A side-view train with one-tap braking makes the theme part of the input and outcome instead of decorative framing.",
+        "approved_by": ["Project owner", "Game UX", "Market Strategy", "Engineering and QA", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "reject-forced-ads-and-install-bounties",
+      "event_type": "intent_decision",
+      "occurred_at": "2026-08-09T11:55:00Z",
+      "summary": "Early difficulty, forced ads, and friend install rewards were reviewed as possible growth mechanics.",
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Current market evidence supports testing an opt-in Continue but does not support forced ads or friend install and signup bounties as success conditions.",
+        "approved_by": ["Project owner", "Market Strategy", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "adopt-productspec-product-harness",
+      "event_type": "spec_revision",
+      "occurred_at": "2026-08-09T12:30:00Z",
+      "summary": "The project adopted ProductSpec revision 1 as its Product Harness contract for discovery, validation, implementation evidence, and conditional launch.",
+      "decision": {
+        "outcome": "record_learning",
+        "rationale": "The service must not claim launch readiness when only code evidence exists; user, business, TestFlight, and App Store gates need durable IDs and receipts.",
+        "approved_by": ["Project owner", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "reject-flat-train-adopt-platform-routing",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T13:13:28Z",
+      "summary": "The project owner rejected the flat side-view braking screen because it did not match the expected premium train, platform crowd, destination zones, effects, and large physical control.",
+      "drift": {
+        "spec_claim": "Revision 1 selected a side-view train and one-tap brake timing as the current validation loop.",
+        "observed_reality": "The owner reference communicates a front-left toy diorama, four destination queues and doors, visible crowd exchange, and a large left-center-right lever as the primary interaction."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Revision 2 tests platform destination routing with a physical lever while preserving revision 1 as rejected evidence and retaining brake timing only as an experiment comparator.",
+        "approved_by": ["Project owner", "Game UX", "Market Strategy", "Engineering and QA", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "reject-symbol-routing-adopt-hell-train-capacity-timing",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T13:38:00Z",
+      "summary": "The project owner rejected destination-symbol door matching as a train-themed matching interface without a compelling train game.",
+      "drift": {
+        "spec_claim": "Revision 2 hypothesized that selecting a destination-matched door with a lever would create a replayable train loop.",
+        "observed_reality": "The owner expected the train's motion, crowd surge, station-specific passenger count, and door-closing timing to determine play."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Revision 3 makes visible passenger threshold crossings change onboard count and asks the player to close all doors at the station target, while avoiding unsafe moving-train boarding imagery.",
+        "approved_by": ["Project owner", "Game UX", "Market Strategy", "Engineering and QA", "Product Orchestrator"]
+      }
+    },
+    {
+      "event_id": "adopt-owner-master-as-runtime-visual-contract",
+      "event_type": "ux_drift",
+      "occurred_at": "2026-08-09T14:58:38Z",
+      "summary": "The project owner rejected the independently reinterpreted rev3 presentation because it did not reproduce the supplied premium vertical diorama design.",
+      "drift": {
+        "spec_claim": "Revision 3 prohibited the owner reference from runtime and treated a separate generated concept as the quality guide.",
+        "observed_reality": "The owner explicitly preferred the supplied composition over every reinterpretation and directed the project to reproduce it as-is rather than search for an alternative."
+      },
+      "decision": {
+        "outcome": "update_spec",
+        "rationale": "Revision 4 uses the owner-supplied image as the prototype runtime visual master, adds only safe-area padding, and keeps current count, threshold passengers, feedback, and the gold center control as live overlays.",
+        "approved_by": ["Project owner", "Product Orchestrator"]
+      }
+    }
+  ]
+}

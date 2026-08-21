@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "RS_VFX_Flame.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

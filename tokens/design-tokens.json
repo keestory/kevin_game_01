@@ -1,0 +1,247 @@
+{
+  "$schema": "./design-tokens.schema.json",
+  "meta": {
+    "name": "Brick Breaker Action Design System",
+    "version": "1.0.0",
+    "logicalViewport": {
+      "width": 1080,
+      "height": 1920
+    },
+    "targetFps": 60
+  },
+  "color": {
+    "bg": {
+      "canvas": "#050A12",
+      "deep": "#02060C",
+      "overlay": "rgba(2, 7, 14, 0.76)"
+    },
+    "surface": {
+      "0": "#07111F",
+      "1": "#0B1728",
+      "2": "#102137",
+      "3": "#162B45"
+    },
+    "border": {
+      "subtle": "#18314A",
+      "default": "#244867",
+      "strong": "#3B6B8E"
+    },
+    "text": {
+      "primary": "#F4F8FF",
+      "secondary": "#A9BCD1",
+      "muted": "#6F849B",
+      "inverse": "#04101A"
+    },
+    "element": {
+      "neutral": {
+        "main": "#C9D5E3",
+        "core": "#FFFFFF",
+        "dark": "#60758E"
+      },
+      "fire": {
+        "main": "#FF7A00",
+        "core": "#FFD166",
+        "dark": "#B63B00"
+      },
+      "electric": {
+        "main": "#168BFF",
+        "core": "#E6F7FF",
+        "dark": "#004DB8"
+      },
+      "piercing": {
+        "main": "#7CFF2B",
+        "core": "#E8FFB5",
+        "dark": "#2E9E00"
+      },
+      "explosion": {
+        "main": "#FF3B30",
+        "core": "#FFF1B8",
+        "dark": "#A80F0A"
+      },
+      "arcane": {
+        "main": "#C239FF",
+        "core": "#F4D6FF",
+        "dark": "#7115A8"
+      },
+      "ice": {
+        "main": "#55D8FF",
+        "core": "#E8FCFF",
+        "dark": "#1686B8"
+      },
+      "laser": {
+        "main": "#FF3158",
+        "core": "#FFFFFF",
+        "dark": "#A8002B"
+      },
+      "shield": {
+        "main": "#28B7FF",
+        "core": "#DDF8FF",
+        "dark": "#0069A8"
+      },
+      "time": {
+        "main": "#9E63FF",
+        "core": "#E9DCFF",
+        "dark": "#4D1B9A"
+      }
+    },
+    "feedback": {
+      "success": "#39D98A",
+      "warning": "#FFC145",
+      "danger": "#FF453A",
+      "info": "#4DB8FF"
+    }
+  },
+  "space": {
+    "0": 0,
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "8": 32,
+    "10": 40,
+    "12": 48,
+    "16": 64,
+    "20": 80
+  },
+  "radius": {
+    "brick": 4,
+    "badge": 6,
+    "button": 10,
+    "card": 12,
+    "panel": 16,
+    "round": 999
+  },
+  "borderWidth": {
+    "hairline": 1,
+    "active": 2,
+    "focus": 3
+  },
+  "typography": {
+    "fontFamily": {
+      "display": "Bebas Neue, Teko, Arial Narrow, sans-serif",
+      "body": "Pretendard, Noto Sans KR, system-ui, sans-serif",
+      "mono": "JetBrains Mono, SFMono-Regular, Consolas, monospace"
+    },
+    "fontSize": {
+      "micro": 10,
+      "labelSm": 12,
+      "bodySm": 14,
+      "bodyMd": 16,
+      "titleMd": 20,
+      "titleLg": 28,
+      "displayLg": 48,
+      "displayXl": 72
+    },
+    "lineHeight": {
+      "tight": 1.0,
+      "heading": 1.1,
+      "body": 1.5
+    },
+    "fontWeight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700,
+      "black": 900
+    },
+    "letterSpacing": {
+      "tight": "-0.02em",
+      "normal": "0",
+      "wide": "0.06em"
+    }
+  },
+  "motion": {
+    "durationMs": {
+      "instant": 60,
+      "fast": 100,
+      "normal": 180,
+      "slow": 320,
+      "dramatic": 520
+    },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0.0, 0.2, 1)",
+      "enter": "cubic-bezier(0.0, 0.0, 0.2, 1)",
+      "exit": "cubic-bezier(0.4, 0.0, 1, 1)",
+      "impact": "cubic-bezier(0.12, 0.85, 0.22, 1.25)"
+    },
+    "hitStopMs": {
+      "normal": 22,
+      "heavy": 36,
+      "critical": 48,
+      "boss": 78
+    },
+    "shakePx": {
+      "normal": 2,
+      "heavy": 4,
+      "critical": 7,
+      "boss": 11
+    }
+  },
+  "glow": {
+    "subtle": {
+      "blur": 8,
+      "spread": 0,
+      "alpha": 0.22
+    },
+    "active": {
+      "blur": 16,
+      "spread": 1,
+      "alpha": 0.42
+    },
+    "impact": {
+      "blur": 28,
+      "spread": 2,
+      "alpha": 0.72
+    }
+  },
+  "gameplay": {
+    "paddle": {
+      "width": 220,
+      "height": 36,
+      "maxSpeed": 1900,
+      "acceleration": 8000,
+      "deceleration": 10000
+    },
+    "ball": {
+      "diameter": 28,
+      "initialSpeed": 760,
+      "softSpeedCap": 1420,
+      "hardSpeedCap": 1650,
+      "minimumVerticalRatio": 0.3,
+      "maxActive": 8
+    },
+    "combo": {
+      "heat": 10,
+      "overdrive": 20,
+      "frenzy": 50
+    }
+  },
+  "performance": {
+    "particleCap": {
+      "high": 420,
+      "medium": 280,
+      "low": 180
+    },
+    "trailSamplesPerBall": {
+      "high": 16,
+      "medium": 10,
+      "low": 6
+    },
+    "shockwaveCap": {
+      "high": 6,
+      "medium": 4,
+      "low": 3
+    }
+  },
+  "zIndex": {
+    "background": 0,
+    "playfield": 10,
+    "ball": 20,
+    "impact": 30,
+    "hud": 40,
+    "modal": 50,
+    "debug": 60
+  }
+}
