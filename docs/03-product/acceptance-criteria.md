@@ -1,5 +1,7 @@
 # Acceptance Criteria — 실제 열차 60초 vertical slice
 
+> **SUPERSEDED / 비권위 보존본:** 이 문서는 2026-08-10의 D-009 결정으로 중단된 열차 prototype의 수용 기준이다. 현재 Return Shot의 권위 수용 기준은 `docs/product-specs/return-shot-chain.product-spec.md` rev3의 AC-1~17이며, 이 파일은 과거 학습 증거로만 유지한다.
+
 > 기준일: 2026-08-09
 > 상태: 구현 검증 중 / 사용자 테스트 전
 > P0/P1가 열려 있으면 Solution Gate는 `Revise`다.

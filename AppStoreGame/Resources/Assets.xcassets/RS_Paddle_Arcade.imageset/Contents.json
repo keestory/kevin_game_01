@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "RS_Paddle_Arcade.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

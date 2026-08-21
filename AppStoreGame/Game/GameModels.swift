@@ -3,6 +3,7 @@ import Foundation
 enum AppRoute: Equatable {
     case home
     case game
+    case descent
     case result(RunResult)
 }
 
@@ -144,7 +145,34 @@ enum AttackItemKind: Int, CaseIterable, Codable, Equatable, Hashable {
     }
 }
 
+struct DifficultyProfile: Codable, Equatable {
+    let level: Int
+    let entryBallSpeed: Double
+    let armorLayers: Int
+    let prismCount: Int
+    let negativeCount: Int
+}
+
+enum AttackUpgradeOutcome: Equatable {
+    case rankedUp(previous: Int, current: Int)
+    case overdrive(rank: Int, activation: Int)
+
+    var rank: Int {
+        switch self {
+        case .rankedUp(_, let current): current
+        case .overdrive(let rank, _): rank
+        }
+    }
+
+    var isOverdrive: Bool {
+        if case .overdrive = self { return true }
+        return false
+    }
+}
+
 struct AttackItemLevels: Codable, Equatable {
+    static let maximumRank = 3
+
     var lightning = 0
     var flame = 0
     var wind = 0
@@ -161,7 +189,7 @@ struct AttackItemLevels: Codable, Equatable {
 
     @discardableResult
     mutating func levelUp(_ kind: AttackItemKind) -> Int {
-        let next = min(3, level(for: kind) + 1)
+        let next = min(Self.maximumRank, level(for: kind) + 1)
         switch kind {
         case .lightning: lightning = next
         case .flame: flame = next
@@ -172,11 +200,23 @@ struct AttackItemLevels: Codable, Equatable {
     }
 }
 
+struct PendingAttackEcho: Codable, Equatable {
+    let sequence: Int
+    let triggerTick: Int
+    let segment: Int
+    let kind: AttackItemKind
+    let carrierID: Int
+    let targetIDs: [Int]
+    let canAwardCombo: Bool
+}
+
 struct AttackItemState: Codable, Equatable {
     var levels = AttackItemLevels()
     var pierceCharges = 0
     var totalCollected = 0
     var lastCollected: AttackItemKind?
+    var overdriveCount = 0
+    var pendingEchoes: [PendingAttackEcho] = []
 }
 
 struct ShotVector: Codable, Equatable {
@@ -280,8 +320,22 @@ enum ShotSimulationEvent: Equatable {
     case cleanDrop(id: Int, points: Int)
     case armorChanged(id: Int, remainingArmor: Int)
     case itemCollected(kind: AttackItemKind, level: Int, carrierID: Int)
+    case itemOverdriveScheduled(
+        kind: AttackItemKind,
+        rank: Int,
+        activation: Int,
+        carrierID: Int,
+        triggerTick: Int
+    )
+    case itemOverdriveActivated(
+        kind: AttackItemKind,
+        rank: Int,
+        activation: Int,
+        carrierID: Int
+    )
     case pierceChargesChanged(Int)
     case segmentAdvanced(Int)
+    case levelAdvanced(DifficultyProfile)
     case missed
 }
 
@@ -332,6 +386,7 @@ struct RunSnapshot: Equatable {
     var pierceCharges = 0
     var totalItemsCollected = 0
     var lastCollectedItem: AttackItemKind?
+    var overdriveCount = 0
     var stageArmor = 0
     var bestScore = 0
     var bestHeight = 0

@@ -16,9 +16,84 @@ final class GameRulesTests: XCTestCase {
         XCTAssertNotEqual(first.bricks, different.bricks)
         XCTAssertEqual(first.bricks.count, 30)
         XCTAssertEqual(first.bricks.filter { $0.role == .support }.count, 6)
-        XCTAssertEqual(first.bricks.filter { $0.role == .prism }.count, 2)
-        XCTAssertEqual(first.bricks.filter { $0.role == .negative }.count, 2)
+        XCTAssertEqual(first.bricks.filter { $0.role == .prism }.count, 0)
+        XCTAssertEqual(first.bricks.filter { $0.role == .negative }.count, 0)
         XCTAssertTrue(first.bricks.filter { $0.anchored }.allSatisfy { $0.role == .support })
+    }
+
+    func testDifficultyProfileIsMonotonicCappedAndUnlocksRolesByLevel() {
+        let expectedSpeeds = [370.0, 388.0, 407.0, 425.0, 444.0]
+        for (segment, speed) in expectedSpeeds.enumerated() {
+            XCTAssertEqual(
+                GameRules.difficultyProfile(segment: segment).entryBallSpeed,
+                speed,
+                accuracy: 0.001
+            )
+        }
+
+        let expectedRoles = [
+            (segment: 0, armor: 0, prism: 0, negative: 0),
+            (segment: 1, armor: 0, prism: 1, negative: 0),
+            (segment: 2, armor: 0, prism: 1, negative: 1),
+            (segment: 3, armor: 1, prism: 2, negative: 2),
+            (segment: 5, armor: 1, prism: 2, negative: 2),
+            (segment: 6, armor: 2, prism: 2, negative: 2)
+        ]
+        for expected in expectedRoles {
+            let profile = GameRules.difficultyProfile(segment: expected.segment)
+            let bricks = GameRules.returnShotBricks(seed: 7, segment: expected.segment)
+            XCTAssertEqual(profile.level, expected.segment + 1)
+            XCTAssertEqual(profile.armorLayers, expected.armor)
+            XCTAssertEqual(profile.prismCount, expected.prism)
+            XCTAssertEqual(profile.negativeCount, expected.negative)
+            XCTAssertEqual(bricks.filter { $0.role == .prism }.count, expected.prism)
+            XCTAssertEqual(bricks.filter { $0.role == .negative }.count, expected.negative)
+        }
+
+        var previous = GameRules.difficultyProfile(segment: 0)
+        for segment in 1...100 {
+            let current = GameRules.difficultyProfile(segment: segment)
+            XCTAssertGreaterThanOrEqual(current.entryBallSpeed, previous.entryBallSpeed)
+            XCTAssertGreaterThanOrEqual(current.armorLayers, previous.armorLayers)
+            XCTAssertGreaterThanOrEqual(current.prismCount, previous.prismCount)
+            XCTAssertGreaterThanOrEqual(current.negativeCount, previous.negativeCount)
+            XCTAssertLessThanOrEqual(current.entryBallSpeed, 518)
+            XCTAssertLessThanOrEqual(current.armorLayers, 2)
+            previous = current
+        }
+        XCTAssertEqual(GameRules.difficultyProfile(segment: 100).entryBallSpeed, 518)
+    }
+
+    func testTenThousandSeedStructuresRemainDeterministicValidAndClearableWithoutItems() {
+        for seed in UInt64(0)..<10_000 {
+            let segment = Int(seed % 12)
+            let first = GameRules.returnShotBricks(seed: seed, segment: segment)
+            let replay = GameRules.returnShotBricks(seed: seed, segment: segment)
+            let ids = Set(first.map(\.id))
+            let carriers = first.filter { $0.embeddedItem != nil }
+
+            XCTAssertEqual(first, replay)
+            XCTAssertEqual(Set(first.map(\.id)).count, first.count)
+            XCTAssertEqual(carriers.count, 1)
+            XCTAssertEqual(carriers.first?.role, .normal)
+            XCTAssertTrue(first.allSatisfy { brick in
+                brick.supportIDs.allSatisfy { supportID in
+                    ids.contains(supportID) && supportID < brick.id
+                }
+            })
+            XCTAssertTrue(first.filter { !$0.anchored }.allSatisfy { !$0.supportIDs.isEmpty })
+            XCTAssertTrue(first.filter { $0.role == .normal }.allSatisfy {
+                $0.maximumHitPoints + $0.maximumArmor <= 3
+            })
+
+            var clearState = stateWith(bricks: first)
+            for index in clearState.bricks.indices where clearState.bricks[index].role != .negative {
+                clearState.bricks[index].isRemoved = true
+                clearState.bricks[index].hitPoints = 0
+            }
+            _ = GameRules.collapseUnsupported(state: &clearState)
+            XCTAssertTrue(clearState.bricks.allSatisfy(\.isRemoved))
+        }
     }
 
     func testEverySupportReferenceExistsAndStructureStaysInsidePlayfield() {
@@ -204,6 +279,17 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(sixty, oneTwenty)
     }
 
+    func testOverdriveChecksumMatchesThirtySixtyOneTwentyAndLargeDeltaTickBatches() {
+        let oneTwenty = simulatedOverdriveChecksum(ticksPerBatch: 1, totalTicks: 120)
+        let sixty = simulatedOverdriveChecksum(ticksPerBatch: 2, totalTicks: 120)
+        let thirty = simulatedOverdriveChecksum(ticksPerBatch: 4, totalTicks: 120)
+        let largeDelta = simulatedOverdriveChecksum(ticksPerBatch: 30, totalTicks: 120)
+
+        XCTAssertEqual(oneTwenty, sixty)
+        XCTAssertEqual(sixty, thirty)
+        XCTAssertEqual(thirty, largeDelta)
+    }
+
     func testProfileDecodingClampsNegativeValuesAndRejectsFutureVersion() throws {
         let clamped = try JSONDecoder().decode(
             PlayerProfile.self,
@@ -249,7 +335,8 @@ final class GameRulesTests: XCTestCase {
     func testEverySegmentHasOneDeterministicCyclingNormalCarrierAndStageArmor() {
         for segment in 0..<12 {
             let expectedKind = AttackItemKind(rawValue: segment % AttackItemKind.allCases.count)
-            let expectedArmor = GameRules.stageArmor(segment: segment)
+            let profile = GameRules.difficultyProfile(segment: segment)
+            let expectedArmor = profile.armorLayers
 
             for seed in UInt64(0)..<64 {
                 let first = GameRules.returnShotBricks(seed: seed, segment: segment)
@@ -260,6 +347,8 @@ final class GameRulesTests: XCTestCase {
                 XCTAssertEqual(carriers.count, 1)
                 XCTAssertEqual(carriers.first?.embeddedItem, expectedKind)
                 XCTAssertEqual(carriers.first?.role, .normal)
+                XCTAssertEqual(first.filter { $0.role == .prism }.count, profile.prismCount)
+                XCTAssertEqual(first.filter { $0.role == .negative }.count, profile.negativeCount)
                 XCTAssertTrue(
                     first.filter { $0.role != .negative }
                         .allSatisfy { $0.maximumArmor == expectedArmor && $0.armor == expectedArmor }
@@ -271,6 +360,29 @@ final class GameRulesTests: XCTestCase {
                 XCTAssertTrue(first.filter { $0.role == .prism }.allSatisfy { $0.maximumHitPoints == 3 })
             }
         }
+    }
+
+    func testClearingLevelEmitsOneLevelTransitionAndUsesEntrySpeed() {
+        var state = stateWith(
+            bricks: [brick(id: 1, role: .normal, hitPoints: 1, signature: nil, anchored: true)]
+        )
+        state.ball.velocity = .zero
+        _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+        let transition = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+        let profile = GameRules.difficultyProfile(segment: 1)
+        XCTAssertEqual(state.segment, 1)
+        XCTAssertEqual(state.ball.velocity.length, profile.entryBallSpeed, accuracy: 0.001)
+        XCTAssertEqual(transition.filter { $0 == .segmentAdvanced(1) }.count, 1)
+        XCTAssertEqual(transition.filter { $0 == .levelAdvanced(profile) }.count, 1)
+        XCTAssertEqual(state.bricks.filter { $0.role == .prism }.count, 1)
+        XCTAssertEqual(state.bricks.filter { $0.role == .negative }.count, 0)
+
+        let nextTick = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+        XCTAssertFalse(nextTick.contains { event in
+            if case .levelAdvanced = event { return true }
+            return false
+        })
     }
 
     func testArmorAbsorbsDamageBeforeCoreAndDoesNotPayCoreScore() {
@@ -608,6 +720,172 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(state.attackItems.levels.lightning, 3)
         XCTAssertEqual(state.attackItems.totalCollected, 4)
         XCTAssertEqual(state.attackItems.levels.flame, 0)
+        XCTAssertEqual(state.attackItems.overdriveCount, 1)
+        XCTAssertEqual(state.attackItems.pendingEchoes.count, 1)
+    }
+
+    func testAttackUpgradeRanksOneToThreeThenUsesBoundedOverdrive() {
+        for kind in AttackItemKind.allCases {
+            var items = AttackItemState()
+            XCTAssertEqual(
+                GameRules.registerAttackCollection(state: &items, kind: kind),
+                .rankedUp(previous: 0, current: 1)
+            )
+            XCTAssertEqual(
+                GameRules.registerAttackCollection(state: &items, kind: kind),
+                .rankedUp(previous: 1, current: 2)
+            )
+            XCTAssertEqual(
+                GameRules.registerAttackCollection(state: &items, kind: kind),
+                .rankedUp(previous: 2, current: 3)
+            )
+            XCTAssertEqual(
+                GameRules.registerAttackCollection(state: &items, kind: kind),
+                .overdrive(rank: 3, activation: 1)
+            )
+            XCTAssertEqual(items.levels.level(for: kind), 3)
+            XCTAssertEqual(items.totalCollected, 4)
+            XCTAssertEqual(items.overdriveCount, 1)
+        }
+    }
+
+    func testMaxOverdriveEchoesSameStableTargetsAtExactlyFifteenTicksWithoutRetarget() {
+        let expectedTargetCounts: [AttackItemKind: Int] = [
+            .lightning: 3,
+            .flame: 7,
+            .wind: 4
+        ]
+
+        for kind in [AttackItemKind.lightning, .flame, .wind] {
+            let center = ShotVector(x: 195, y: 300)
+            let targetCount = try! XCTUnwrap(expectedTargetCounts[kind])
+            var bricks = [
+                brick(
+                    id: 1,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    item: kind,
+                    center: center
+                )
+            ]
+            for offset in 0...targetCount {
+                let targetCenter: ShotVector
+                if kind == .wind {
+                    targetCenter = ShotVector(x: center.x, y: center.y + Double(offset + 1) * 10)
+                } else {
+                    targetCenter = ShotVector(x: center.x + Double(offset + 1) * 10, y: center.y)
+                }
+                bricks.append(
+                    brick(
+                        id: 10 + offset,
+                        role: .normal,
+                        hitPoints: 1,
+                        signature: nil,
+                        anchored: true,
+                        armor: 1,
+                        center: targetCenter
+                    )
+                )
+            }
+
+            var state = stateWith(bricks: bricks)
+            state.ball.velocity = .zero
+            for _ in 0..<AttackItemLevels.maximumRank {
+                _ = state.attackItems.levels.levelUp(kind)
+            }
+
+            let direct = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+            let expectedIDs = Array(10..<(10 + targetCount))
+            let extraID = 10 + targetCount
+            XCTAssertEqual(state.attackItems.levels.level(for: kind), 3)
+            XCTAssertEqual(state.attackItems.pendingEchoes.first?.targetIDs, expectedIDs)
+            XCTAssertEqual(state.attackItems.pendingEchoes.first?.triggerTick, 15)
+            XCTAssertEqual(state.combo, 1)
+            XCTAssertTrue(direct.events.contains { event in
+                if case .itemOverdriveScheduled(let eventKind, 3, 1, 1, 15) = event {
+                    return eventKind == kind
+                }
+                return false
+            })
+            for id in expectedIDs {
+                let target = try! XCTUnwrap(state.bricks.first { $0.id == id })
+                XCTAssertEqual(target.armor, 0)
+                XCTAssertEqual(target.hitPoints, 1)
+                XCTAssertFalse(target.isRemoved)
+            }
+            XCTAssertEqual(state.bricks.first { $0.id == extraID }?.armor, 1)
+
+            if kind == .lightning,
+               let removedBeforeEcho = state.bricks.firstIndex(where: { $0.id == expectedIDs[0] }) {
+                state.bricks[removedBeforeEcho].isRemoved = true
+            }
+
+            for _ in 0..<14 {
+                let events = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+                XCTAssertFalse(events.contains { event in
+                    if case .itemOverdriveActivated = event { return true }
+                    return false
+                })
+            }
+            XCTAssertEqual(state.attackItems.pendingEchoes.count, 1)
+
+            let echo = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+            XCTAssertEqual(state.tick, 15)
+            XCTAssertEqual(echo.filter { event in
+                if case .itemOverdriveActivated(let eventKind, 3, 1, 1) = event {
+                    return eventKind == kind
+                }
+                return false
+            }.count, 1)
+            XCTAssertTrue(state.attackItems.pendingEchoes.isEmpty)
+            XCTAssertEqual(state.combo, 2)
+            XCTAssertEqual(state.bricks.first { $0.id == extraID }?.armor, 1)
+            XCTAssertFalse(state.bricks.first { $0.id == extraID }?.isRemoved ?? true)
+
+            let afterEcho = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+            XCTAssertFalse(afterEcho.contains { event in
+                if case .itemOverdriveActivated = event { return true }
+                return false
+            })
+        }
+    }
+
+    func testPierceMaxOverdriveAddsThreeThenThreeAtTickFifteenAndCapsAtSix() {
+        for initialCharges in [0, 6] {
+            let carrier = brick(
+                id: 1,
+                role: .normal,
+                hitPoints: 1,
+                signature: nil,
+                anchored: true,
+                item: .pierce
+            )
+            let survivor = brick(id: 2, role: .normal, hitPoints: 1, signature: nil, anchored: true)
+            var state = stateWith(bricks: [carrier, survivor])
+            state.ball.velocity = .zero
+            state.attackItems.pierceCharges = initialCharges
+            for _ in 0..<AttackItemLevels.maximumRank {
+                _ = state.attackItems.levels.levelUp(.pierce)
+            }
+
+            _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+            XCTAssertEqual(state.attackItems.pierceCharges, initialCharges == 0 ? 3 : 6)
+            XCTAssertEqual(state.attackItems.pendingEchoes.first?.triggerTick, 15)
+
+            for _ in 0..<14 {
+                _ = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+            }
+            XCTAssertEqual(state.attackItems.pierceCharges, initialCharges == 0 ? 3 : 6)
+
+            let echo = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+            XCTAssertEqual(state.attackItems.pierceCharges, 6)
+            XCTAssertEqual(echo.filter { event in
+                if case .itemOverdriveActivated(.pierce, 3, 1, 1) = event { return true }
+                return false
+            }.count, 1)
+        }
     }
 
     func testPierceAddsLevelChargesConsumesOnPositiveAndNeverOnNegative() {
@@ -720,7 +998,7 @@ final class GameRulesTests: XCTestCase {
         })
     }
 
-    func testChecksumCoversArmorCarrierLevelsAndPierceCharges() {
+    func testChecksumCoversArmorCarrierLevelsPierceAndPendingOverdrive() {
         let baseline = GameRules.initialReturnShotState(seed: 99)
         let baselineChecksum = GameRules.checksum(baseline)
 
@@ -739,7 +1017,38 @@ final class GameRulesTests: XCTestCase {
         var chargeChanged = baseline
         chargeChanged.attackItems.pierceCharges = 2
         XCTAssertNotEqual(GameRules.checksum(chargeChanged), baselineChecksum)
+
+        var overdriveChanged = baseline
+        overdriveChanged.attackItems.overdriveCount = 1
+        XCTAssertNotEqual(GameRules.checksum(overdriveChanged), baselineChecksum)
+
+        var pendingChanged = baseline
+        pendingChanged.attackItems.pendingEchoes = [
+            PendingAttackEcho(
+                sequence: 1,
+                triggerTick: 15,
+                segment: 0,
+                kind: .flame,
+                carrierID: 7,
+                targetIDs: [8, 9],
+                canAwardCombo: true
+            )
+        ]
+        XCTAssertNotEqual(GameRules.checksum(pendingChanged), baselineChecksum)
     }
+
+#if !SWIFT_PACKAGE
+    func testNativeDesignAdapterExposesOnlyApprovedAttackSet() {
+        let tokens = BrickBreakerDesignAdapter.approvedElements
+
+        XCTAssertEqual(tokens.count, 4)
+        XCTAssertEqual(Set(tokens.map(\.kind)), Set(AttackItemKind.allCases))
+        XCTAssertEqual(Set(tokens.map(\.id)).count, tokens.count)
+        XCTAssertTrue(BrickBreakerDesignAdapter.element(for: .wind).isSourceExtension)
+        XCTAssertFalse(BrickBreakerDesignAdapter.element(for: .lightning).isSourceExtension)
+        XCTAssertEqual(BrickBreakerDesignAdapter.sourceVersion, "1.0.0")
+    }
+#endif
 
     private func simulatedChecksum(framesPerSecond: Int, seconds: Int) -> UInt64 {
         var state = GameRules.initialReturnShotState(seed: 424_242)
@@ -750,6 +1059,48 @@ final class GameRulesTests: XCTestCase {
                     + sin(Double(state.tick) * 0.037) * 112
                 _ = GameRules.stepReturnShot(state: &state, paddleTargetX: target)
             }
+        }
+        return GameRules.checksum(state)
+    }
+
+    private func simulatedOverdriveChecksum(ticksPerBatch: Int, totalTicks: Int) -> UInt64 {
+        let carrier = brick(
+            id: 1,
+            role: .normal,
+            hitPoints: 1,
+            signature: nil,
+            anchored: true,
+            item: .lightning,
+            center: ShotVector(x: 195, y: 300)
+        )
+        var targets: [ShotBrick] = []
+        for offset in 0..<4 {
+            targets.append(
+                brick(
+                    id: 10 + offset,
+                    role: .normal,
+                    hitPoints: 1,
+                    signature: nil,
+                    anchored: true,
+                    armor: 1,
+                    center: ShotVector(x: 205 + Double(offset) * 10, y: 300)
+                )
+            )
+        }
+        var state = stateWith(bricks: [carrier] + targets)
+        state.ball.velocity = .zero
+        for _ in 0..<AttackItemLevels.maximumRank {
+            _ = state.attackItems.levels.levelUp(.lightning)
+        }
+        _ = GameRules.resolveDirectBrickContact(state: &state, brickID: 1)
+
+        var completedTicks = 0
+        while completedTicks < totalTicks {
+            let batch = min(ticksPerBatch, totalTicks - completedTicks)
+            for _ in 0..<batch {
+                _ = GameRules.stepReturnShot(state: &state, paddleTargetX: 195)
+            }
+            completedTicks += batch
         }
         return GameRules.checksum(state)
     }

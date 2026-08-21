@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/brick-breaker/design-tokens.schema.json",
+  "title": "Brick Breaker Design Tokens",
+  "type": "object",
+  "required": [
+    "meta",
+    "color",
+    "space",
+    "radius",
+    "typography",
+    "motion",
+    "gameplay",
+    "performance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "logicalViewport",
+        "targetFps"
+      ]
+    },
+    "color": {
+      "type": "object"
+    },
+    "space": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "radius": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "borderWidth": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "typography": {
+      "type": "object"
+    },
+    "motion": {
+      "type": "object"
+    },
+    "glow": {
+      "type": "object"
+    },
+    "gameplay": {
+      "type": "object"
+    },
+    "performance": {
+      "type": "object"
+    },
+    "zIndex": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    }
+  },
+  "additionalProperties": false
+}

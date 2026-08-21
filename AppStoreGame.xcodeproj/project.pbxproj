@@ -25,6 +25,21 @@
 		F00000000000000000000010 /* GameRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000011 /* GameRulesTests.swift */; };
 		F00000000000000000000011 /* AppStoreGameUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000012 /* AppStoreGameUITests.swift */; };
 		F00000000000000000000012 /* RewardedAdService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000016 /* RewardedAdService.swift */; };
+		F00000000000000000000013 /* BrickBreakerDesignAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000017 /* BrickBreakerDesignAdapter.swift */; };
+		F00000000000000000000014 /* GameArtCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000018 /* GameArtCatalog.swift */; };
+		F00000000000000000000015 /* GameArtCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000019 /* GameArtCatalogTests.swift */; };
+		F00000000000000000000016 /* DescentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001A /* DescentModels.swift */; };
+		F00000000000000000000017 /* DescentRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001B /* DescentRules.swift */; };
+		F00000000000000000000018 /* DescentArtCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001C /* DescentArtCatalog.swift */; };
+		F00000000000000000000019 /* DescentGameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001D /* DescentGameScene.swift */; };
+		F0000000000000000000001A /* DescentGameContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001E /* DescentGameContainerView.swift */; };
+		F0000000000000000000001B /* DescentRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001F /* DescentRulesTests.swift */; };
+		F0000000000000000000001C /* DescentResearchAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* DescentResearchAnalytics.swift */; };
+		F0000000000000000000001D /* LocalResearchEventStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* LocalResearchEventStore.swift */; };
+		F0000000000000000000001E /* DescentResearchAnalyticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* DescentResearchAnalyticsTests.swift */; };
+		F0000000000000000000001F /* DescentResearchReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* DescentResearchReport.swift */; };
+		F00000000000000000000020 /* DescentResearchConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000024 /* DescentResearchConsoleView.swift */; };
+		F00000000000000000000021 /* DescentResearchReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000025 /* DescentResearchReportTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +82,21 @@
 		A00000000000000000000014 /* AppStoreGameTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppStoreGameTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000015 /* AppStoreGameUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppStoreGameUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000016 /* RewardedAdService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardedAdService.swift; sourceTree = "<group>"; };
+		A00000000000000000000017 /* BrickBreakerDesignAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrickBreakerDesignAdapter.swift; sourceTree = "<group>"; };
+		A00000000000000000000018 /* GameArtCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameArtCatalog.swift; sourceTree = "<group>"; };
+		A00000000000000000000019 /* GameArtCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameArtCatalogTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000001A /* DescentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentModels.swift; sourceTree = "<group>"; };
+		A0000000000000000000001B /* DescentRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentRules.swift; sourceTree = "<group>"; };
+		A0000000000000000000001C /* DescentArtCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentArtCatalog.swift; sourceTree = "<group>"; };
+		A0000000000000000000001D /* DescentGameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentGameScene.swift; sourceTree = "<group>"; };
+		A0000000000000000000001E /* DescentGameContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentGameContainerView.swift; sourceTree = "<group>"; };
+		A0000000000000000000001F /* DescentRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentRulesTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000020 /* DescentResearchAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentResearchAnalytics.swift; sourceTree = "<group>"; };
+		A00000000000000000000021 /* LocalResearchEventStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalResearchEventStore.swift; sourceTree = "<group>"; };
+		A00000000000000000000022 /* DescentResearchAnalyticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentResearchAnalyticsTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000023 /* DescentResearchReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentResearchReport.swift; sourceTree = "<group>"; };
+		A00000000000000000000024 /* DescentResearchConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentResearchConsoleView.swift; sourceTree = "<group>"; };
+		A00000000000000000000025 /* DescentResearchReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescentResearchReportTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +120,7 @@
 			isa = PBXGroup;
 			children = (
 				400000000000000000000003 /* App */,
+				40000000000000000000000B /* Analytics */,
 				400000000000000000000004 /* Core */,
 				400000000000000000000005 /* Game */,
 				400000000000000000000006 /* Views */,
@@ -100,11 +131,12 @@
 			sourceTree = "<group>";
 		};
 		400000000000000000000003 /* App */ = {isa = PBXGroup; children = (A00000000000000000000001, A00000000000000000000002); path = App; sourceTree = "<group>"; };
+		40000000000000000000000B /* Analytics */ = {isa = PBXGroup; children = (A00000000000000000000020, A00000000000000000000021, A00000000000000000000023); path = Analytics; sourceTree = "<group>"; };
 		400000000000000000000004 /* Core */ = {isa = PBXGroup; children = (A00000000000000000000003, A00000000000000000000004, A00000000000000000000016); path = Core; sourceTree = "<group>"; };
-		400000000000000000000005 /* Game */ = {isa = PBXGroup; children = (A00000000000000000000005, A00000000000000000000006, A00000000000000000000007); path = Game; sourceTree = "<group>"; };
-		400000000000000000000006 /* Views */ = {isa = PBXGroup; children = (A00000000000000000000008, A00000000000000000000009, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, A0000000000000000000000D); path = Views; sourceTree = "<group>"; };
+		400000000000000000000005 /* Game */ = {isa = PBXGroup; children = (A00000000000000000000005, A00000000000000000000006, A00000000000000000000007, A00000000000000000000018, A0000000000000000000001A, A0000000000000000000001B, A0000000000000000000001C, A0000000000000000000001D); path = Game; sourceTree = "<group>"; };
+		400000000000000000000006 /* Views */ = {isa = PBXGroup; children = (A00000000000000000000008, A00000000000000000000017, A00000000000000000000009, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, A0000000000000000000000D, A0000000000000000000001E, A00000000000000000000024); path = Views; sourceTree = "<group>"; };
 		400000000000000000000007 /* Resources */ = {isa = PBXGroup; children = (A0000000000000000000000E, A0000000000000000000000F); path = Resources; sourceTree = "<group>"; };
-		400000000000000000000008 /* AppStoreGameTests */ = {isa = PBXGroup; children = (A00000000000000000000011); path = AppStoreGameTests; sourceTree = "<group>"; };
+		400000000000000000000008 /* AppStoreGameTests */ = {isa = PBXGroup; children = (A00000000000000000000011, A00000000000000000000019, A0000000000000000000001F, A00000000000000000000022, A00000000000000000000025); path = AppStoreGameTests; sourceTree = "<group>"; };
 		400000000000000000000009 /* AppStoreGameUITests */ = {isa = PBXGroup; children = (A00000000000000000000012); path = AppStoreGameUITests; sourceTree = "<group>"; };
 		40000000000000000000000A /* Products */ = {isa = PBXGroup; children = (A00000000000000000000013, A00000000000000000000014, A00000000000000000000015); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
@@ -181,10 +213,10 @@
 		500000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (F00000000000000000000001, F00000000000000000000002, F00000000000000000000003, F00000000000000000000004, F00000000000000000000012, F00000000000000000000005, F00000000000000000000006, F00000000000000000000007, F00000000000000000000008, F00000000000000000000009, F0000000000000000000000A, F0000000000000000000000B, F0000000000000000000000C, F0000000000000000000000D);
+			files = (F00000000000000000000001, F00000000000000000000002, F0000000000000000000001C, F0000000000000000000001D, F0000000000000000000001F, F00000000000000000000003, F00000000000000000000004, F00000000000000000000012, F00000000000000000000005, F00000000000000000000006, F00000000000000000000007, F00000000000000000000014, F00000000000000000000016, F00000000000000000000017, F00000000000000000000018, F00000000000000000000019, F00000000000000000000008, F00000000000000000000013, F00000000000000000000009, F0000000000000000000000A, F0000000000000000000000B, F0000000000000000000000C, F0000000000000000000000D, F0000000000000000000001A, F00000000000000000000020);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		500000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F00000000000000000000010); runOnlyForDeploymentPostprocessing = 0; };
+		500000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F00000000000000000000010, F00000000000000000000015, F0000000000000000000001B, F0000000000000000000001E, F00000000000000000000021); runOnlyForDeploymentPostprocessing = 0; };
 		500000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F00000000000000000000011); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 

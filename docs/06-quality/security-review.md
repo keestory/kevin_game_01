@@ -46,3 +46,12 @@ flowchart LR
 ## 개인정보 결론
 
 `NSPrivacyTracking=false`, 빈 수집 목록, UserDefaults required-reason은 현재 소스와 정합하다. 이는 정적/시뮬레이터 증거이며 signed archive의 포함 SDK, 실제 네트워크 트래픽, App Store Connect 답변은 아직 `Unknown`이다.
+
+## Choice Arena 로컬 연구 로그 — 2026-08-20
+
+- `-descentResearch`를 명시한 DEBUG 연구 실행에서만 `Application Support/DescentResearch/runs-v1.jsonl`을 사용한다. Release configuration과 일반 DEBUG 실행은 `NoopDescentResearchEventSink`이며 네트워크·외부 SDK·자동 업로드가 없다.
+- 저장 범위는 random research/run UUID, 선택적 `P01…P10` 연구 슬롯, variant/order, seed, ship, aggregate input time·lane change, 점수·콤보·선택·결과다. raw touch 좌표, 이름, 연락처, Apple/광고 ID, 정확한 기기 ID, 접근성 설정, 화면·음성은 저장하지 않는다.
+- 한 run은 semantic event당 최대 1회, 전체 64 events로 제한한다. 저장소는 최대 100 runs/1MB이며 run UUID로 upsert한다. 손상·미래 schema line, read 오류, 상한 초과는 저장과 다음 연구 run을 차단하며 기존 원자료를 자동 삭제·재작성하지 않는다.
+- 앱 내부 저장 실패는 scene과 coordinator에 전파되어 연구 run을 일시정지하고 무효 안내를 표시한다. Research Console에서 DQ와 원자료를 확인하기 전 다음 run을 시작하지 않는다.
+- 파일에는 iOS Data Protection `completeUntilFirstUserAuthentication`을 적용한다. 연구 종료 후 30일 이내 `deleteAll`로 삭제하고, 참가자 연락처·동의서 대응표는 앱 로그 밖에 별도 보관한다.
+- 이 로그를 기기 밖으로 복사하거나 사용자 연구에 사용하려면 연구 목적·보관·삭제를 사전 고지하고 동의를 받는다. App Store 제품 분석으로 확장할 때는 PrivacyInfo/App Store Connect 답변과 opt-out·삭제 경로를 다시 검토한다.

@@ -1,0 +1,96 @@
+:root {
+  --bb-bg-canvas: #050a12;
+  --bb-bg-deep: #02060c;
+  --bb-surface-0: #07111f;
+  --bb-surface-1: #0b1728;
+  --bb-surface-2: #102137;
+  --bb-surface-3: #162b45;
+  --bb-border-subtle: #18314a;
+  --bb-border-default: #244867;
+  --bb-border-strong: #3b6b8e;
+  --bb-text-primary: #f4f8ff;
+  --bb-text-secondary: #a9bcd1;
+  --bb-text-muted: #6f849b;
+
+  --bb-neutral: #c9d5e3;
+  --bb-fire: #ff7a00;
+  --bb-fire-core: #ffd166;
+  --bb-electric: #168bff;
+  --bb-electric-core: #e6f7ff;
+  --bb-piercing: #7cff2b;
+  --bb-piercing-core: #e8ffb5;
+  --bb-explosion: #ff3b30;
+  --bb-explosion-core: #fff1b8;
+  --bb-arcane: #c239ff;
+  --bb-arcane-core: #f4d6ff;
+  --bb-ice: #55d8ff;
+  --bb-ice-core: #e8fcff;
+  --bb-laser: #ff3158;
+  --bb-shield: #28b7ff;
+  --bb-time: #9e63ff;
+
+  --bb-space-1: 4px;
+  --bb-space-2: 8px;
+  --bb-space-3: 12px;
+  --bb-space-4: 16px;
+  --bb-space-5: 20px;
+  --bb-space-6: 24px;
+  --bb-space-8: 32px;
+  --bb-space-10: 40px;
+  --bb-space-12: 48px;
+  --bb-space-16: 64px;
+
+  --bb-radius-brick: 4px;
+  --bb-radius-badge: 6px;
+  --bb-radius-button: 10px;
+  --bb-radius-card: 12px;
+  --bb-radius-panel: 16px;
+  --bb-radius-round: 999px;
+
+  --bb-font-display: "Bebas Neue", "Teko", "Arial Narrow", sans-serif;
+  --bb-font-body: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  --bb-font-mono: "JetBrains Mono", SFMono-Regular, Consolas, monospace;
+
+  --bb-duration-instant: 60ms;
+  --bb-duration-fast: 100ms;
+  --bb-duration-normal: 180ms;
+  --bb-duration-slow: 320ms;
+  --bb-ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --bb-ease-impact: cubic-bezier(0.12, 0.85, 0.22, 1.25);
+}
+
+.bb-panel {
+  color: var(--bb-text-primary);
+  background: color-mix(in srgb, var(--bb-surface-1) 92%, transparent);
+  border: 1px solid var(--bb-border-subtle);
+  border-radius: var(--bb-radius-panel);
+}
+
+.bb-button {
+  min-height: 44px;
+  padding: 0 var(--bb-space-5);
+  border: 1px solid var(--bb-border-default);
+  border-radius: var(--bb-radius-button);
+  color: var(--bb-text-primary);
+  background: var(--bb-surface-2);
+  font: 600 14px/1 var(--bb-font-body);
+  transition:
+    transform var(--bb-duration-instant) var(--bb-ease-impact),
+    border-color var(--bb-duration-fast) var(--bb-ease-standard),
+    filter var(--bb-duration-fast) var(--bb-ease-standard);
+}
+
+.bb-button:active {
+  transform: scale(0.97);
+}
+
+.bb-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--bb-electric) 70%, white);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-button {
+    transition-duration: 1ms;
+  }
+}

@@ -2,10 +2,10 @@
 spec_format_version: "0.1"
 title: "연쇄파괴: 리턴 샷 — 스킬 코어와 구조 붕괴 endless prototype"
 artifact_type: "hypothesis"
-spec_revision: 3
+spec_revision: 4
 author: "Product Orchestrator"
 created_at: "2026-08-10T00:00:00+09:00"
-updated_at: "2026-08-18T02:00:00+09:00"
+updated_at: "2026-08-19T01:00:00+09:00"
 linked_github_repo: "keestory/kevin_game_01"
 ---
 
@@ -19,7 +19,7 @@ linked_github_repo: "keestory/kevin_game_01"
 
 ## Product Summary
 
-`연쇄파괴: 리턴 샷`은 세로형 endless 물리 아케이드다. 공은 자동으로 왕복하고 플레이어는 패들의 접촉 위치와 이동 속도로 다음 반사각을 바꾼다. 일반·프리즘 벽돌에는 색, 무늬, 마크가 있으며 같은 속성을 연속 적중하면 LINK가 오른다. 한 속성이 5연속이면 6초간 `공명 폭주`가 발동한다. 구조마다 일반 벽돌 한 개에는 번개·화염·바람·관통 코어가 순서대로 들어 있고, 그 벽돌을 직접 파괴하면 해당 공격이 즉시 발동하며 run 안에서 Lv1~3으로 성장한다. 3HP 프리즘과 마이너스 지지 붕괴는 유지하고, 구조 4부터 최대 2겹의 별도 방어막만 추가한다. run은 실수할 때까지 계속되며 점수·높이·콤보·LINK·스킬 빌드 개인 기록을 추격한다.
+`연쇄파괴: 리턴 샷`은 세로형 endless 물리 아케이드다. 공은 자동으로 왕복하고 플레이어는 패들의 접촉 위치와 이동 속도로 다음 반사각을 바꾼다. 일반·프리즘 벽돌에는 색, 무늬, 마크가 있으며 같은 속성을 연속 적중하면 LINK가 오른다. 한 속성이 5연속이면 6초간 `공명 폭주`가 발동한다. 구조 번호는 현재 run의 `LEVEL`이며, Level 1은 LINK와 코어, Level 2는 프리즘, Level 3은 마이너스, Level 4는 방어막을 순서대로 소개한다. 구조마다 일반 벽돌 한 개에는 번개·화염·바람·관통 코어가 순서대로 들어 있고, 그 벽돌을 직접 파괴하면 해당 공격이 즉시 발동하며 run 안에서 Lv1~3으로 성장한다. 이미 Lv3인 코어의 중복 획득은 등급을 무한히 올리지 않고 동일 대상을 15 tick 뒤 다시 치는 bounded `MAX OVERDRIVE`를 한 번 발동한다. run은 실수할 때까지 계속되며 점수·높이·콤보·LINK·스킬 빌드 개인 기록을 추격한다.
 
 ## Scope
 
@@ -31,6 +31,8 @@ in:
   - Include normal bricks, two-hit support nodes, three-hit prism bonus bricks, and indestructible negative bricks removable through support loss.
   - Embed exactly one deterministic attack core in a normal brick per structure; cycle lightning, flame, wind, and pierce in that order.
   - Level each attack independently from zero to three for the current run and fire the newly collected level without pausing or adding another input.
+  - Expose each generated structure as the current run Level and introduce prism, negative, and armor in Levels two, three, and four respectively.
+  - Make a direct duplicate of an already max-rank core fire one bounded deterministic overdrive echo without creating rank four, a new slot, or permanent account power.
   - Add a separate zero-to-two armor layer by structure while preserving every role's core hit-point contract.
   - Apply negative score only to authoritative direct ball contact; cosmetic debris and shockwaves never cause a penalty.
   - Include deterministic support-collapse transactions, endless segment generation, score, height, combo, personal-best line, pace ghost, pause, Reduce Motion, and one-tap same-seed retry.
@@ -41,6 +43,7 @@ out:
   - Do not allow random or cosmetic contacts to alter score, combo, LINK, hit points, or collapse state.
   - Do not allow shockwave, unsupported fall, or another attack item to collect or recursively activate an embedded core.
   - Do not add an inventory screen, skill-choice modal, manual skill button, permanent stat upgrade, paid damage, or ad-gated armor solution.
+  - Do not raise ball speed above 518 points per second before resonance, raise armor above two, or inflate core hit points by Level.
   - Do not claim App Store rank, retention, CPI, or LTV before measured evidence.
 cut:
   - Cut independent pattern and mark scoring and use one redundant signature family if five-second understanding fails.
@@ -117,6 +120,24 @@ cut:
 - damage는 armor를 먼저 흡수하고 남은 damage만 core HP에 적용한다. armor-only hit은 core hit reward, 파괴, 콤보를 발생시키지 않는다.
 - armor와 core HP는 별도 모양으로 표시하며 색만으로 구분하지 않는다.
 
+### Visible Level and difficulty
+
+- `LEVEL = segment + 1`이며 positive 구조가 모두 제거될 때만 다음 Level로 진행한다. 타이머로 강제 전환하지 않는다.
+- Level 1은 prism 0·negative 0, Level 2는 prism 1·negative 0, Level 3은 prism 1·negative 1, Level 4 이상은 prism 2·negative 2다. 고정된 후보 위치의 앞 N개만 사용해 seed와 support graph를 보존한다.
+- 진입 공 속도는 Level 1~5에서 370/388/407/425/444pt/s, Level 6부터 Level당 15pt/s 증가하며 518pt/s에서 멈춘다. 시간에 따른 숨은 속도 증가는 사용하지 않는다.
+- armor는 Level 1~3에서 0, Level 4~6에서 1, Level 7 이상에서 2이며 그 이상 증가하지 않는다.
+- Level 배너는 `LEVEL N · ARMOR +M`을 0.7초 이내 비차단 표시한다. 배너·효과 때문에 simulation tick이나 패들 입력을 멈추지 않는다.
+
+### MAX OVERDRIVE
+
+- 발동 전부터 해당 공격이 Lv3이고 carrier를 공으로 직접 파괴한 경우에만 발동한다. 공격 등급은 계속 Lv3이다.
+- 번개·화염·바람은 기존 Lv3 stable target IDs에 primary 1 damage를 적용한 뒤 정확히 15 authoritative tick 후 생존한 동일 IDs에 1 damage echo를 적용한다. 사라진 대상을 다른 벽돌로 대체하지 않는다.
+- 관통은 primary +3 charge, 15 tick 뒤 echo +3 charge를 주되 총 보유량은 6으로 제한한다.
+- pending echo는 trigger tick, segment, carrier ID, kind, activation sequence, 정렬 target IDs를 권위 상태와 checksum에 포함한다.
+- primary와 echo 전체가 combo를 최대 한 번만 올리고, LINK·negative·다른 carrier·다른 item을 공격하거나 발동하지 않는다.
+- pending echo가 있으면 다음 Level 생성만 최대 15 tick 유예한다. 공과 패들 입력은 계속 진행한다.
+- MAX 연출은 공격별 형태를 유지하고 공 아래 z-order, 전체 transient node 64개, 공격 root 8개, flash alpha 0.12 이하를 지킨다. Reduce Motion에서는 camera motion 없이 짧은 outline pulse 두 번으로 대체한다.
+
 ## Acceptance Criteria
 
 ```productspec-acceptance-criteria
@@ -154,6 +175,12 @@ cut:
   criterion: Structure armor follows zero, one, and two-layer boundaries, absorbs damage before core hit points, never exceeds two, and leaves prism core durability at exactly three.
 - id: AC-17
   criterion: On a 375 by 667 point display, four skill levels, active feedback, armor, ball path, LINK, negative warning, and primary controls remain distinguishable without clipping or relying on color alone.
+- id: AC-18
+  criterion: Level equals segment plus one, uses the committed role-introduction counts, entry-speed curve, and armor bands, never advances on a timer, and never raises pre-resonance speed above 518 points per second.
+- id: AC-19
+  criterion: A duplicate max-rank direct core schedules exactly one overdrive echo at current tick plus fifteen against the original stable target IDs, never retargets or recursively collects, and primary plus echo awards at most one combo.
+- id: AC-20
+  criterion: Level and overdrive presentation never pause authoritative ticks or input, stays below the ball, obeys transient and flash budgets, and has a Reduce Motion substitute on 375 by 667 and 402 by 874 displays.
 ```
 
 ## Success Metrics
@@ -202,6 +229,11 @@ cut:
   target_status: provisional
   target_owner: "Product and UX Research"
   window: baseline versus skill-core prototype
+- id: SM-9
+  metric: progression_understanding
+  target: ">= 4 of 5 explain Level role introduction and same-core L1 to L3 growth; first same-kind L2 within 120 seconds"
+  target_status: committed
+  window: moderated same-seed test
 ```
 
 ## Risks
@@ -233,6 +265,9 @@ cut:
 - 일반 벽돌이 armor 때문에 세 번을 초과해 맞아야 하거나 3초 이상 같은 벽돌 반복 타격을 요구한다.
 - attack wave가 negative를 때리거나 LINK·다른 core를 한 번이라도 발동한다.
 - 스킬 도입 후 active-touch가 60% 미만이거나 자발적 3회차가 baseline보다 개선되지 않는다.
+- 10,000 seed 중 코어 미획득 softlock, 접근 불가 지지 경로, 무광고 불가능 구조가 한 건이라도 발생한다.
+- MAX OVERDRIVE 한 번이 구조의 50%를 초과해 자동 제거하거나 run 점수의 25%를 초과한다.
+- 5명 중 2명 이상이 Level 3/MAX 차이를 오인하거나 MAX 중복을 헛아이템으로 평가한다.
 
 ## Related Artifacts
 

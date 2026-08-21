@@ -16,7 +16,10 @@ enum GameRules {
     static let maximumPaddleSpeed = 720.0
     static let powerDurationTicks = 6 * tickRate
     static let comboGraceDurationTicks = Int(1.6 * Double(tickRate))
+    static let overdriveEchoDelayTicks = 15
+    static let maximumPierceCharges = 6
     private static let itemSeedSalt: UInt64 = 0xA771_ACED_17E5_4A11
+    private static let levelEntrySpeeds = [370.0, 388.0, 407.0, 425.0, 444.0]
 
     private enum CollisionKind: Equatable {
         case wall
@@ -32,8 +35,13 @@ enum GameRules {
         let stableID: Int
     }
 
+    private struct AttackWaveResolution {
+        let events: [ShotSimulationEvent]
+        let didAwardCombo: Bool
+    }
+
     static func initialReturnShotState(seed: UInt64) -> ReturnShotState {
-        let speed = 370.0
+        let speed = difficultyProfile(segment: 0).entryBallSpeed
         let direction = ShotVector(x: 0.18, y: 0.98).normalized()
         return ReturnShotState(
             seed: seed,
@@ -48,12 +56,55 @@ enum GameRules {
         )
     }
 
-    static func stageArmor(segment: Int) -> Int {
-        switch max(0, segment) {
-        case 0...2: 0
-        case 3...5: 1
-        default: 2
+    static func difficultyProfile(segment: Int) -> DifficultyProfile {
+        let boundedSegment = max(0, segment)
+        let level = boundedSegment + 1
+        let entryBallSpeed: Double
+        if level <= levelEntrySpeeds.count {
+            entryBallSpeed = levelEntrySpeeds[level - 1]
+        } else {
+            entryBallSpeed = min(
+                518,
+                levelEntrySpeeds[levelEntrySpeeds.count - 1]
+                    + Double(level - levelEntrySpeeds.count) * 15
+            )
         }
+
+        let armorLayers: Int
+        switch level {
+        case 1...3: armorLayers = 0
+        case 4...6: armorLayers = 1
+        default: armorLayers = 2
+        }
+
+        let prismCount: Int
+        let negativeCount: Int
+        switch level {
+        case 1:
+            prismCount = 0
+            negativeCount = 0
+        case 2:
+            prismCount = 1
+            negativeCount = 0
+        case 3:
+            prismCount = 1
+            negativeCount = 1
+        default:
+            prismCount = 2
+            negativeCount = 2
+        }
+
+        return DifficultyProfile(
+            level: level,
+            entryBallSpeed: entryBallSpeed,
+            armorLayers: armorLayers,
+            prismCount: prismCount,
+            negativeCount: negativeCount
+        )
+    }
+
+    static func stageArmor(segment: Int) -> Int {
+        difficultyProfile(segment: segment).armorLayers
     }
 
     static func returnShotBricks(seed: UInt64, segment: Int) -> [ShotBrick] {
@@ -67,16 +118,23 @@ enum GameRules {
         let spacingY = 52.0
 
         var bricks: [ShotBrick] = []
-        let armor = stageArmor(segment: segment)
+        let profile = difficultyProfile(segment: segment)
+        let armor = profile.armorLayers
+        let prismSlots = [(row: 2, column: 1), (row: 4, column: 2)]
+        let negativeSlots = [(row: 3, column: 4), (row: 4, column: 5)]
         for row in 0..<rowCount {
             for column in 0..<columnCount {
                 let id = segment * 1_000 + row * 10 + column
                 let role: ShotBrickRole
                 if row == 0 {
                     role = .support
-                } else if (row == 2 && column == 1) || (row == 4 && column == 2) {
+                } else if let slot = prismSlots.firstIndex(where: {
+                    $0.row == row && $0.column == column
+                }), slot < profile.prismCount {
                     role = .prism
-                } else if (row == 3 && column == 4) || (row == 4 && column == 5) {
+                } else if let slot = negativeSlots.firstIndex(where: {
+                    $0.row == row && $0.column == column
+                }), slot < profile.negativeCount {
                     role = .negative
                 } else {
                     role = .normal
@@ -192,6 +250,7 @@ enum GameRules {
                 events.append(.linkChanged(state.link))
             }
         }
+        events.append(contentsOf: resolveDueAttackEchoes(state: &state))
 
         var remainingTime = tickDuration
         var collisionIterations = 0
@@ -239,13 +298,20 @@ enum GameRules {
             events.append(.missed)
         }
 
+        let hasPendingEchoInCurrentSegment = state.attackItems.pendingEchoes.contains {
+            $0.segment == state.segment
+        }
         if state.phase == .playing,
+           !hasPendingEchoInCurrentSegment,
            !state.bricks.contains(where: { !$0.isRemoved && $0.role != .negative }) {
             state.segment += 1
             state.height += 10
             state.bricks = returnShotBricks(seed: state.seed, segment: state.segment)
-            state.feedback = "\(state.height)m 돌파 · 새 구조"
+            normalizeBallSpeed(state: &state)
+            let profile = difficultyProfile(segment: state.segment)
+            state.feedback = "LEVEL \(profile.level) · SPEED \(Int(profile.entryBallSpeed))"
             events.append(.segmentAdvanced(state.segment))
+            events.append(.levelAdvanced(profile))
         }
 
         return events
@@ -453,18 +519,44 @@ enum GameRules {
         carrierID: Int,
         sourceCenter: ShotVector
     ) -> [ShotSimulationEvent] {
-        let level = state.attackItems.levels.levelUp(kind)
-        state.attackItems.totalCollected += 1
-        state.attackItems.lastCollected = kind
-        state.feedback = "\(kind.name) 코어 LV\(level) 발동!"
+        let upgrade = registerAttackCollection(state: &state.attackItems, kind: kind)
+        let level = upgrade.rank
+        state.feedback = upgrade.isOverdrive
+            ? "\(kind.name) MAX OVERDRIVE 충전!"
+            : "\(kind.name) 코어 LV\(level) 발동!"
         var events: [ShotSimulationEvent] = [
             .itemCollected(kind: kind, level: level, carrierID: carrierID)
         ]
 
         if kind == .pierce {
-            state.attackItems.pierceCharges += level
+            state.attackItems.pierceCharges = min(
+                maximumPierceCharges,
+                state.attackItems.pierceCharges + level
+            )
             state.feedback = "관통 LV\(level) · \(state.attackItems.pierceCharges)회 충전"
             events.append(.pierceChargesChanged(state.attackItems.pierceCharges))
+            if case .overdrive(_, let activation) = upgrade {
+                let pending = PendingAttackEcho(
+                    sequence: activation,
+                    triggerTick: state.tick + overdriveEchoDelayTicks,
+                    segment: state.segment,
+                    kind: kind,
+                    carrierID: carrierID,
+                    targetIDs: [],
+                    canAwardCombo: false
+                )
+                state.attackItems.pendingEchoes.append(pending)
+                state.attackItems.pendingEchoes.sort(by: pendingEchoSort)
+                events.append(
+                    .itemOverdriveScheduled(
+                        kind: kind,
+                        rank: level,
+                        activation: activation,
+                        carrierID: carrierID,
+                        triggerTick: pending.triggerTick
+                    )
+                )
+            }
             return events
         }
 
@@ -475,14 +567,56 @@ enum GameRules {
             carrierID: carrierID,
             sourceCenter: sourceCenter
         )
-        events.append(
-            contentsOf: applyAttackItemWave(
-                state: &state,
-                kind: kind,
-                targetIndices: targets
-            )
+        let primary = applyAttackItemWave(
+            state: &state,
+            kind: kind,
+            targetIndices: targets,
+            awardsCombo: true
         )
+        events.append(contentsOf: primary.events)
+
+        if case .overdrive(_, let activation) = upgrade {
+            let targetIDs = targets
+                .map { state.bricks[$0].id }
+                .sorted()
+            let pending = PendingAttackEcho(
+                sequence: activation,
+                triggerTick: state.tick + overdriveEchoDelayTicks,
+                segment: state.segment,
+                kind: kind,
+                carrierID: carrierID,
+                targetIDs: targetIDs,
+                canAwardCombo: !primary.didAwardCombo
+            )
+            state.attackItems.pendingEchoes.append(pending)
+            state.attackItems.pendingEchoes.sort(by: pendingEchoSort)
+            events.append(
+                .itemOverdriveScheduled(
+                    kind: kind,
+                    rank: level,
+                    activation: activation,
+                    carrierID: carrierID,
+                    triggerTick: pending.triggerTick
+                )
+            )
+        }
         return events
+    }
+
+    @discardableResult
+    static func registerAttackCollection(
+        state: inout AttackItemState,
+        kind: AttackItemKind
+    ) -> AttackUpgradeOutcome {
+        let previous = state.levels.level(for: kind)
+        let current = state.levels.levelUp(kind)
+        state.totalCollected += 1
+        state.lastCollected = kind
+        if previous >= AttackItemLevels.maximumRank {
+            state.overdriveCount += 1
+            return .overdrive(rank: current, activation: state.overdriveCount)
+        }
+        return .rankedUp(previous: previous, current: current)
     }
 
     private static func attackItemTargets(
@@ -552,8 +686,9 @@ enum GameRules {
     private static func applyAttackItemWave(
         state: inout ReturnShotState,
         kind: AttackItemKind,
-        targetIndices: [Int]
-    ) -> [ShotSimulationEvent] {
+        targetIndices: [Int],
+        awardsCombo: Bool
+    ) -> AttackWaveResolution {
         var events: [ShotSimulationEvent] = []
         var removedAny = false
 
@@ -577,11 +712,70 @@ enum GameRules {
             )
         }
 
-        if removedAny {
+        var didAwardCombo = false
+        if removedAny, awardsCombo {
             advanceCombo(state: &state, events: &events)
+            didAwardCombo = true
+        }
+        if removedAny {
             events.append(contentsOf: collapseUnsupported(state: &state, awardsCombo: false))
         }
+        return AttackWaveResolution(events: events, didAwardCombo: didAwardCombo)
+    }
+
+    private static func resolveDueAttackEchoes(
+        state: inout ReturnShotState
+    ) -> [ShotSimulationEvent] {
+        let due = state.attackItems.pendingEchoes
+            .filter { $0.triggerTick <= state.tick }
+            .sorted(by: pendingEchoSort)
+        guard !due.isEmpty else { return [] }
+
+        let dueSequences = Set(due.map(\.sequence))
+        state.attackItems.pendingEchoes.removeAll { dueSequences.contains($0.sequence) }
+
+        var events: [ShotSimulationEvent] = []
+        for echo in due where echo.segment == state.segment {
+            events.append(
+                .itemOverdriveActivated(
+                    kind: echo.kind,
+                    rank: AttackItemLevels.maximumRank,
+                    activation: echo.sequence,
+                    carrierID: echo.carrierID
+                )
+            )
+
+            if echo.kind == .pierce {
+                state.attackItems.pierceCharges = min(
+                    maximumPierceCharges,
+                    state.attackItems.pierceCharges + AttackItemLevels.maximumRank
+                )
+                events.append(.pierceChargesChanged(state.attackItems.pierceCharges))
+            } else {
+                let targetIndices = echo.targetIDs.compactMap { targetID in
+                    state.bricks.firstIndex { brick in
+                        brick.id == targetID
+                            && !brick.isRemoved
+                            && brick.role != .negative
+                            && brick.embeddedItem == nil
+                    }
+                }
+                let resolution = applyAttackItemWave(
+                    state: &state,
+                    kind: echo.kind,
+                    targetIndices: targetIndices,
+                    awardsCombo: echo.canAwardCombo
+                )
+                events.append(contentsOf: resolution.events)
+            }
+            state.feedback = "\(echo.kind.name) MAX OVERDRIVE!"
+        }
         return events
+    }
+
+    private static func pendingEchoSort(_ lhs: PendingAttackEcho, _ rhs: PendingAttackEcho) -> Bool {
+        if lhs.triggerTick != rhs.triggerTick { return lhs.triggerTick < rhs.triggerTick }
+        return lhs.sequence < rhs.sequence
     }
 
     private static func squaredDistance(_ lhs: ShotVector, _ rhs: ShotVector) -> Double {
@@ -699,6 +893,21 @@ enum GameRules {
         mixInt(state.attackItems.pierceCharges)
         mixInt(state.attackItems.totalCollected)
         mix(state.attackItems.lastCollected.map { UInt64($0.rawValue) } ?? UInt64.max)
+        mixInt(state.attackItems.overdriveCount)
+        let pendingEchoes = state.attackItems.pendingEchoes.sorted(by: pendingEchoSort)
+        mixInt(pendingEchoes.count)
+        for echo in pendingEchoes {
+            mixInt(echo.sequence)
+            mixInt(echo.triggerTick)
+            mixInt(echo.segment)
+            mix(UInt64(echo.kind.rawValue))
+            mixInt(echo.carrierID)
+            mix(echo.canAwardCombo ? 1 : 0)
+            mixInt(echo.targetIDs.count)
+            for targetID in echo.targetIDs {
+                mixInt(targetID)
+            }
+        }
         let phaseValue: UInt64 = switch state.phase {
         case .ready: 0
         case .playing: 1
@@ -984,10 +1193,8 @@ enum GameRules {
     }
 
     private static func desiredBallSpeed(state: ReturnShotState) -> Double {
-        let segmentBoost = min(210, Double(state.segment) * 13)
-        let timeBoost = min(120, Double(state.tick) / Double(tickRate * 20) * 9)
-        let base = 370 + segmentBoost + timeBoost
-        return min(720, base * (state.isPowerActive ? 1.12 : 1))
+        let base = difficultyProfile(segment: state.segment).entryBallSpeed
+        return base * (state.isPowerActive ? 1.12 : 1)
     }
 
     private static func normalizeBallSpeed(state: inout ReturnShotState) {
